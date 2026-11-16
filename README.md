@@ -35,9 +35,10 @@ The distribution is named **terminal-cells**; its executable is **cells**.
 Install a published release with `pipx install terminal-cells`.
 You can also use `python3 -m pip install .` inside an active virtual
 environment. See [the release guide](docs/RELEASING.md) for publishing and
-future Ubuntu packaging.
+Ubuntu publishing.
 
-Ubuntu packaging and build instructions are in [the Ubuntu guide](docs/UBUNTU.md).
+Ubuntu 24.04/26.04 `.deb` downloads, PPA installation, and build instructions are
+in [the Ubuntu guide](docs/UBUNTU.md).
 
 Use a terminal at least **80×24**; **120×40 or larger** gives the detailed
 organisms room to move. Macrophages are roughly 31–35 columns wide and 16–18

@@ -7,6 +7,31 @@ with Lintian, then exercises installation, reinstallation, snapshot output,
 manual-page placement, and removal. This does not establish native Windows
 support or inclusion in Ubuntu's default repositories.
 
+## Install from the PPA
+
+The cells PPA is <https://launchpad.net/~bogobogosort/+archive/ubuntu/cells>.
+Once Launchpad lists a published package for your Ubuntu release, install it with:
+
+```sh
+sudo add-apt-repository ppa:bogobogosort/cells
+sudo apt update
+sudo apt install terminal-cells
+cells
+```
+
+The initial PPA versions are `0.1.0-1ppa1~24.04.1` for Ubuntu 24.04 (`noble`)
+and `0.1.0-1ppa1~26.04.1` for Ubuntu 26.04 (`resolute`). The executable reports
+upstream version `0.1.0`. The PPA is maintained separately from Ubuntu's official
+repositories. Alternatively, download the matching `.deb` and checksums from
+[the GitHub release](https://github.com/kborer/cells/releases/tag/v0.1.0) and run
+`sudo apt install ./terminal-cells_..._all.deb` with its actual filename.
+
+Maintainers can rerun the **Ubuntu packages** workflow with the PPA's repository
+signing fingerprint to verify real apt installations in clean containers. Use
+the repository key shown on Launchpad, rather than an uploader's personal key.
+The check validates that fingerprint before configuring a scoped apt source,
+then checks the exact published version, snapshot, manual page, and removal.
+
 ## Build locally
 
 Use a disposable Ubuntu VM or container for the target release:

@@ -5,6 +5,6 @@ wheel>=0.45
 twine>=6
 Pillow>=11
 ruff==0.17.4
-hypothesis>=6.100
+hypothesis>=6.168.5
 
 coverage>=7.6

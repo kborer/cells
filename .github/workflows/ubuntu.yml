@@ -51,7 +51,12 @@ jobs:
       - name: Check package policy
         run: lintian --allow-root --fail-on error /tmp/cells-deb/*.changes
       - name: Test install, reinstall, and removal
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
+          # Minimal Ubuntu images discard manuals unless this filter is removed.
+          find /etc/dpkg/dpkg.cfg.d -type f -exec \
+            sed -i '\|^path-exclude[= ]*/usr/share/man/|d' {} +
           apt-get install -y /tmp/cells-deb/terminal-cells_*_all.deb
           sh -x debian/tests/smoke
           apt-get install -y --reinstall /tmp/cells-deb/terminal-cells_*_all.deb

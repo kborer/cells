@@ -23,6 +23,8 @@ echo 'b6ff320183c096f5126dca827143d0daed9d7613baaac54c147b2575645bcf46  terminal
 tar -xzf terminal-cells_0.1.0.orig.tar.gz
 # Copy debian/ from the current Git checkout into terminal_cells-0.1.0/.
 cd terminal_cells-0.1.0
+series=$(. /etc/os-release; printf '%s' "$VERSION_CODENAME")
+sed -i "1s/0.1.0-1) unstable/0.1.0-1~${series}1) ${series}/" debian/changelog
 dpkg-buildpackage --no-sign -sa
 lintian --fail-on error ../*.changes
 sudo apt install ../terminal-cells_*_all.deb

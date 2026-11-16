@@ -18,7 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: ['24.04', '26.04']
+        include:
+          - {ubuntu: '24.04', series: noble}
+          - {ubuntu: '26.04', series: resolute}
     steps:
       - name: Install distro build and test tools
         env:
@@ -32,6 +34,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Build from the verified 0.1.0 upstream release
+        env:
+          UBUNTU_SERIES: ${{ matrix.series }}
         run: |
           mkdir -p /tmp/cells-deb
           cd /tmp/cells-deb
@@ -42,6 +46,7 @@ jobs:
           tar -xzf terminal-cells_0.1.0.orig.tar.gz
           cp -a "$GITHUB_WORKSPACE/debian" terminal_cells-0.1.0/debian
           cd terminal_cells-0.1.0
+          sed -i "1s/0.1.0-1) unstable/0.1.0-1~${UBUNTU_SERIES}1) ${UBUNTU_SERIES}/" debian/changelog
           dpkg-buildpackage --no-sign -sa
       - name: Check package policy
         run: lintian --allow-root --fail-on error /tmp/cells-deb/*.changes

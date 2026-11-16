@@ -1,5 +1,5 @@
 Source: terminal-cells
-Section: games
+Section: misc
 Priority: optional
 Maintainer: cells contributors <640862+kborer@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject,
@@ -9,7 +9,6 @@ Rules-Requires-Root: no
 Homepage: https://github.com/kborer/cells
 Vcs-Git: https://github.com/kborer/cells.git
 Vcs-Browser: https://github.com/kborer/cells
-Testsuite: autopkgtest
 
 Package: terminal-cells
 Architecture: all

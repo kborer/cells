@@ -1,0 +1,23 @@
+Source: terminal-cells
+Section: games
+Priority: optional
+Maintainer: cells contributors <640862+kborer@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), dh-python, pybuild-plugin-pyproject,
+ python3-all, python3-setuptools (>= 61), python3-wheel, python3-hypothesis
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/kborer/cells
+Vcs-Git: https://github.com/kborer/cells.git
+Vcs-Browser: https://github.com/kborer/cells
+Testsuite: autopkgtest
+
+Package: terminal-cells
+Architecture: all
+Depends: ${misc:Depends}, ${python3:Depends}, python3 (>= 3.10)
+Description: animated microscopic life in your terminal
+ Watch immune cells engulf microbes, bacteria divide, and phages replicate in
+ a living terminal microscope slide. Includes diverse organisms, rare events,
+ optional mouse and keyboard tools, and plain-text snapshots.
+ .
+ This is biological illustration with exaggerated sizes and timing, rather
+ than a scientific model.

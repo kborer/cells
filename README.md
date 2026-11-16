@@ -37,6 +37,8 @@ You can also use `python3 -m pip install .` inside an active virtual
 environment. See [the release guide](docs/RELEASING.md) for publishing and
 future Ubuntu packaging.
 
+Ubuntu packaging and build instructions are in [the Ubuntu guide](docs/UBUNTU.md).
+
 Use a terminal at least **80×24**; **120×40 or larger** gives the detailed
 organisms room to move. Macrophages are roughly 31–35 columns wide and 16–18
 rows tall in a roomy terminal, with a smaller fit for compact windows. Bacteria

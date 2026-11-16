@@ -1,0 +1,70 @@
+name: Ubuntu packages
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deb:
+    name: Ubuntu ${{ matrix.ubuntu }} package
+    runs-on: ubuntu-latest
+    container: ubuntu:${{ matrix.ubuntu }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ['24.04', '26.04']
+    steps:
+      - name: Install distro build and test tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git \
+            build-essential debhelper dh-python pybuild-plugin-pyproject \
+            python3-all python3-setuptools python3-wheel python3-hypothesis lintian
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build from the verified 0.1.0 upstream release
+        run: |
+          mkdir -p /tmp/cells-deb
+          cd /tmp/cells-deb
+          curl --fail --location --retry 3 \
+            https://github.com/kborer/cells/releases/download/v0.1.0/terminal_cells-0.1.0.tar.gz \
+            -o terminal-cells_0.1.0.orig.tar.gz
+          echo 'b6ff320183c096f5126dca827143d0daed9d7613baaac54c147b2575645bcf46  terminal-cells_0.1.0.orig.tar.gz' | sha256sum --check
+          tar -xzf terminal-cells_0.1.0.orig.tar.gz
+          cp -a "$GITHUB_WORKSPACE/debian" terminal_cells-0.1.0/debian
+          cd terminal_cells-0.1.0
+          dpkg-buildpackage --no-sign -sa
+      - name: Check package policy
+        run: lintian --allow-root --fail-on error /tmp/cells-deb/*.changes
+      - name: Test install, reinstall, and removal
+        run: |
+          apt-get install -y /tmp/cells-deb/terminal-cells_*_all.deb
+          sh debian/tests/smoke
+          apt-get install -y --reinstall /tmp/cells-deb/terminal-cells_*_all.deb
+          sh debian/tests/smoke
+          apt-get purge -y terminal-cells
+          if command -v cells; then
+            echo 'cells executable survived package removal' >&2
+            exit 1
+          fi
+      - name: Collect archives and checksums
+        run: |
+          mkdir -p packages
+          cp /tmp/cells-deb/*.deb /tmp/cells-deb/*.dsc /tmp/cells-deb/*.tar.* \
+            /tmp/cells-deb/*.changes /tmp/cells-deb/*.buildinfo packages/
+          cd packages
+          sha256sum * > SHA256SUMS
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ubuntu-${{ matrix.ubuntu }}-packages
+          path: packages/
+          if-no-files-found: error

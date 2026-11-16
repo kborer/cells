@@ -1,0 +1,17 @@
+#!/bin/sh
+set -eu
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT HUP INT TERM
+cd "$work"
+test "$(cells --version)" = 'cells 0.1.0'
+cells --snapshot --seed 42 --size 80x24 > snapshot
+python3 - <<'PY'
+from pathlib import Path
+text = Path('snapshot').read_text()
+assert len(text.splitlines()) == 24
+assert text.strip()
+assert all(len(line) <= 80 for line in text.splitlines())
+import terminal_cells
+assert terminal_cells.__file__.startswith('/usr/lib/python3/dist-packages/')
+PY
+test -f /usr/share/man/man1/cells.1.gz

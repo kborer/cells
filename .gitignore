@@ -12,3 +12,11 @@ htmlcov/
 .env
 .env.*
 !.env.example
+.pybuild/
+.pc/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/*.debhelper
+debian/*.substvars
+debian/terminal-cells/

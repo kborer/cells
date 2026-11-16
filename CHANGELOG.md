@@ -2,9 +2,11 @@
 
 ## Unreleased
 
+- Add Debian-format packaging and Ubuntu 24.04/26.04 build and installation checks.
+
 ## 0.1.0 — 2026-11-16
 
-First release. Published to TestPyPI and prepared for production PyPI.
+First release, available on PyPI and GitHub.
 
 - Let immune cells crawl against ordinary slide flow and turn away from screen
   edges instead of accumulating at the right boundary.

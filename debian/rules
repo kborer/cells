@@ -1,0 +1,7 @@
+#!/usr/bin/make -f
+export PYBUILD_NAME=terminal-cells
+export PYBUILD_SYSTEM=pyproject
+export PYBUILD_TEST_ARGS=discover -s {dir}/tests -v
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild

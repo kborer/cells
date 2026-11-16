@@ -84,8 +84,8 @@ GitHub publisher with these exact values:
 | Workflow name | `publish.yml` |
 | Environment name | `testpypi` |
 
-The GitHub `testpypi` environment is configured. Branch/tag protections remain
-pending while this personal repository is private under its current plan.
+The GitHub `testpypi` environment is configured. The repository is public, with
+main-branch and release-tag protection enabled.
 A pending publisher does not reserve the package name; only the first successful
 upload creates the project. Do not register the production publisher as a
 substitute for the TestPyPI registration.
@@ -115,7 +115,7 @@ python3 -m venv /tmp/cells-testpypi
 The TestPyPI rehearsal for version 0.1.0 passed, including all ten Linux/macOS
 test jobs, archive validation, and installation of the uploaded wheel:
 <https://github.com/kborer/cells/actions/runs/43959940186>.
-The GitHub repository remains private. Both publishing environments exist;
+Both publishing environments exist;
 the production `pypi` environment allows deployment only from `v*` tags.
 This environment restriction is separate from protection against modifying tags.
 
@@ -158,8 +158,9 @@ checks are pending until actually run; local Linux checks do not establish them.
   curses compatibility work and is not advertised as supported.
 
 For Debian/Ubuntu, keep `terminal-cells` as the package name and `cells` as the
-command. Prepare `debian/control`, `rules`, `changelog`, `copyright`,
-`source/format`, and `tests/control`. Use the distro's Python interpreter with
+command. Packaging files and Ubuntu CI are now included; see
+[the Ubuntu guide](UBUNTU.md) for building and PPA prerequisites.
+Use the distro's Python interpreter with
 `dh-python` and `pybuild-plugin-pyproject`, install the manual page, and declare
 runtime Python dependencies through `${python3:Depends}`. Builds and tests must
 use packaged build tools without fetching dependencies from the network. The

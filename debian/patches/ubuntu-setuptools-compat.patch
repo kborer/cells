@@ -1,0 +1,26 @@
+Description: support the distro setuptools without fetching newer build tools
+ Ubuntu 24.04 ships setuptools 68, which predates PEP 639 metadata support.
+ Use its supported license table and retain the same bundled 0BSD LICENSE.
+ Runtime code is unchanged. This patch is only used by Debian packaging.
+Author: cells contributors
+Forwarded: not-needed
+Last-Update: 2026-11-16
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,5 +1,5 @@
+ [build-system]
+-requires = ["setuptools>=77"]
++requires = ["setuptools>=61"]
+ build-backend = "setuptools.build_meta"
+ 
+ [project]
+@@ -9,8 +9,7 @@
+ description = "A living microscope slide in your terminal"
+ readme = "docs/PYPI.md"
+ requires-python = ">=3.10"
+-license = "0BSD"
+-license-files = ["LICENSE"]
++license = {file = "LICENSE"}
+ authors = [{name = "cells contributors"}]
+ keywords = ["terminal", "screensaver", "microscopy", "biology", "ascii"]
+ classifiers = [

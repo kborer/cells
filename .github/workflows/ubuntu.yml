@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      ppa_key_fingerprint:
+        description: Expected cells PPA repository signing fingerprint (optional)
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -80,3 +85,62 @@ jobs:
           name: ubuntu-${{ matrix.ubuntu }}-packages
           path: packages/
           if-no-files-found: error
+
+  ppa-install:
+    name: PPA install / Ubuntu ${{ matrix.ubuntu }}
+    if: github.event_name == 'workflow_dispatch' && inputs.ppa_key_fingerprint != ''
+    runs-on: ubuntu-latest
+    container: ubuntu:${{ matrix.ubuntu }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {ubuntu: '24.04', series: noble, version: '0.1.0-1ppa1~24.04.1'}
+          - {ubuntu: '26.04', series: resolute, version: '0.1.0-1ppa1~26.04.1'}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      PPA_KEY: ${{ inputs.ppa_key_fingerprint }}
+      UBUNTU_SERIES: ${{ matrix.series }}
+      EXPECTED_VERSION: ${{ matrix.version }}
+    steps:
+      - name: Install apt verification tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg python3
+      - name: Verify the PPA key and configure its apt source
+        run: |
+          case "$PPA_KEY" in
+            *[!0-9A-Fa-f]*|'') echo 'Invalid fingerprint' >&2; exit 1 ;;
+          esac
+          test "${#PPA_KEY}" -eq 40
+          curl --fail --location --retry 3 \
+            "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$PPA_KEY" \
+            -o /tmp/cells-ppa.asc
+          actual=$(gpg --batch --with-colons --show-keys /tmp/cells-ppa.asc | \
+            awk -F: '$1 == "fpr" { print $10; exit }')
+          test "$actual" = "$(printf '%s' "$PPA_KEY" | tr '[:lower:]' '[:upper:]')"
+          gpg --batch --dearmor --output /usr/share/keyrings/cells-ppa.gpg /tmp/cells-ppa.asc
+          echo "deb [signed-by=/usr/share/keyrings/cells-ppa.gpg] https://ppa.launchpadcontent.net/bogobogosort/cells/ubuntu $UBUNTU_SERIES main" \
+            > /etc/apt/sources.list.d/cells.list
+          find /etc/dpkg/dpkg.cfg.d -type f -exec \
+            sed -i '\|^path-exclude[= ]*/usr/share/man/|d' {} +
+      - name: Install and exercise the published PPA package
+        run: |
+          apt-get update
+          apt-cache policy terminal-cells
+          apt-get install -y "terminal-cells=$EXPECTED_VERSION"
+          test "$(dpkg-query -W -f='${Version}' terminal-cells)" = "$EXPECTED_VERSION"
+          cd /tmp
+          test "$(cells --version)" = 'cells 0.1.0'
+          cells --snapshot --seed 42 --size 80x24 > cells-snapshot
+          python3 - <<'PYTHON'
+          from pathlib import Path
+          text = Path('cells-snapshot').read_text()
+          assert len(text.splitlines()) == 24 and text.strip()
+          import terminal_cells
+          assert terminal_cells.__file__.startswith('/usr/lib/python3/dist-packages/')
+          PYTHON
+          test -f /usr/share/man/man1/cells.1.gz
+          apt-get purge -y terminal-cells
+          if command -v cells; then exit 1; fi

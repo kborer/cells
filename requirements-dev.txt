@@ -7,4 +7,4 @@ Pillow>=11
 ruff==0.17.4
 hypothesis>=6.100
 
-coverage>=7.6
+coverage>=7.16.2

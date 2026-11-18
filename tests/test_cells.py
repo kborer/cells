@@ -1330,7 +1330,16 @@ class CliTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == "posix", "requires a POSIX pseudo-terminal")
 class TerminalTests(unittest.TestCase):
-    def session(self, keys=b"", extra=(), terminate=False, resize=False, events=(), activity=None):
+    def session(
+        self,
+        keys=b"",
+        extra=(),
+        terminate=False,
+        resize=False,
+        events=(),
+        activity=None,
+        startup_delay=0,
+    ):
         import fcntl
         import pty
         import select
@@ -1341,8 +1350,19 @@ class TerminalTests(unittest.TestCase):
         before = terminal_modes(slave)
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
         env = os.environ | {"TERM": "xterm-256color", "LANG": "C.UTF-8"}
+        command = [sys.executable, "cells.py", "--seed", "42", "--duration", "2", *extra]
+        if startup_delay:
+            # Delay only the child interpreter, before app imports and handlers.
+            command = [
+                sys.executable,
+                "-c",
+                "import runpy, sys, time; time.sleep(float(sys.argv.pop(1))); "
+                "sys.argv[0] = 'cells.py'; runpy.run_path('cells.py', run_name='__main__')",
+                str(startup_delay),
+                *command[2:],
+            ]
         process = subprocess.Popen(
-            [sys.executable, "cells.py", "--seed", "42", "--duration", "2", *extra],
+            command,
             stdin=slave,
             stdout=slave,
             stderr=slave,
@@ -1365,7 +1385,10 @@ class TerminalTests(unittest.TestCase):
                 ):
                     os.write(master, events[event_index][1])
                     event_index += 1
-                if not sent and time.monotonic() - start > 0.2:
+                # SIGTERM cleanup is meaningful once curses has initialized.
+                # A loaded runner can take more than 200 ms just to import Python.
+                ready = not terminate or b"\x1b[?1049h" in output
+                if not sent and ready and time.monotonic() - start > 0.2:
                     if resize:
                         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 16, 40, 0, 0))
                         process.send_signal(signal.SIGWINCH)
@@ -1463,6 +1486,9 @@ class TerminalTests(unittest.TestCase):
 
     def test_sigterm_restores_terminal(self):
         self.session(terminate=True)
+
+    def test_sigterm_cleanup_after_slow_interpreter_startup(self):
+        self.session(terminate=True, startup_delay=0.4)
 
 
 if __name__ == "__main__":

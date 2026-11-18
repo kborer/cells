@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+## 0.1.3 — 2026-11-18
+
 - Add subtle near/far contrast to existing background particles, using stable
   size cues and single-character marks without increasing particle counts.
+- Complete GitHub release creation after successful production promotion.
 
 ## 0.1.2 — 2026-11-17
 

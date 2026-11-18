@@ -1,9 +1,9 @@
 # Terminal compatibility
 
-Interactive mode targets Linux and macOS with Python 3.10+ and curses. Ubuntu
-and macOS CI is configured for Python 3.10 and 3.14; hosted results must be
-observed after publishing the repository. Local validation uses Linux and a
-pseudo-terminal. Native Windows support is not claimed; use WSL.
+The animated app targets Linux and macOS with Python 3.10+ and curses. CI tests
+Python 3.10 through 3.14 on Ubuntu and macOS, including pseudo-terminal sessions.
+See [current CI runs](https://github.com/kborer/cells/actions/workflows/ci.yml).
+Native Windows support is not claimed; use WSL.
 
 80×24 is a useful minimum, and 120×40 shows more anatomy. Below 32×12 the
 simulation pauses and asks for a larger window. Resizing keeps the slide alive.

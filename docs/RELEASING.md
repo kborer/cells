@@ -79,5 +79,5 @@ See [Ubuntu packaging and PPA instructions](UBUNTU.md) and
 [maintenance and recovery](MAINTENANCE.md). PPA source preparation supports a
 verified archive/manifest and optional local signing; keep that key off CI.
 PyPI/pipx covers Linux/macOS. Native Windows is not supported; use WSL.
-A Homebrew tap remains a separate distribution task. Official Debian/Ubuntu
-archive inclusion is separate from the PPA.
+Maintain the separate tap using the [Homebrew guide](HOMEBREW.md). Official
+Debian/Ubuntu archive inclusion is separate from the PPA.

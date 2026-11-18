@@ -1,88 +1,125 @@
 # Contributing
 
-Small improvements to animation, organism behavior, accessibility, performance,
-and platform support are welcome. This is a biological illustration: shapes and
-timings are exaggerated so they remain readable in a terminal.
+Biology suggestions, microscope references, screenshots, terminal testing, code,
+and documentation are all welcome. Programming experience is not required.
+Browse [starter issues](https://github.com/kborer/cells/labels/good%20first%20issue),
+or open an issue describing what you would like to improve. A brief discussion
+before a large new organism or interaction helps settle scope and visual design.
 
-## Local setup
+This is biological illustration: sizes and timing are exaggerated for a terminal.
 
-Use Python 3.10+ with curses on Linux or macOS, or inside WSL. Runtime code uses
-only the standard library. Work in an isolated environment for development:
+## Your first change
+
+Use Python 3.10+ on Linux, macOS, or WSL. Runtime code uses only the standard
+library; the animated app also needs curses. Fork the repository on GitHub, then:
 
 ```sh
+git clone https://github.com/YOUR-USERNAME/cells.git
+cd cells
+git switch -c my-improvement
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m pip install --no-deps -e .
-ruff check .
-ruff format --check .
-python -m unittest discover -s tests -v
+cells --seed 42
 ```
 
-Run `./cells --seed 42` to explore interactively, or use a reproducible snapshot:
+Make a small change, then run the relevant tests below. For a repeatable plain-text
+view without curses:
 
 ```sh
 cells --snapshot --seed 42 --size 100x32 --at 30
 ```
 
-## Making changes
+A seed repeats a history within the same version, terminal size, and sequence of
+steps. Resizing and interactive tools change that history.
 
-- Keep data/geometry in `terminal_cells/models.py`, updates in `world.py`,
-  pure drawing in `render.py`, and terminal/argument handling in `cli.py`.
-  Drawing must not mutate the world or consume its random number generator.
-- Use `world.rng` for simulation randomness. Within a program version, a seed, size, and sequence of
-  simulation steps must reproduce the same world.
-- Respect membrane boundaries, ownership during capture, and population caps.
-- Preserve ASCII, colorless, and small-terminal behavior when changing visuals.
-- Add focused regression tests for behavior changes. Use simulated time rather
-  than sleeping; pseudo-terminal tests cover terminal interaction and cleanup.
+## Where to make a change
 
-Run the test suite before submitting a pull request. For visible changes,
-include a screenshot or short recording and the seed, size, and simulation time.
-Regenerate relevant previews with `python tools/preview.py`. To regenerate the
-animated demo, run `python tools/demo.py`; Pillow is a development dependency.
-The generator uses Noto Sans Runic or FreeMono when available for compact phages;
-use `--symbol-font PATH` to supply a Runic-capable font on other systems.
+| Task | Start here |
+| --- | --- |
+| Organism sizes, geometry, state | `terminal_cells/models.py` |
+| Movement, capture, reproduction, arrivals | `terminal_cells/world.py` |
+| Shapes, organelles, palettes | `terminal_cells/render.py` |
+| Rare sightings | `terminal_cells/events.py`, `event_render.py` |
+| Experimental tool effects | `terminal_cells/lab.py`, `lab_render.py` |
+| Mouse/keyboard tools and footer | `terminal_cells/interaction.py` |
+| Command options, help, terminal cleanup | `terminal_cells/cli.py` |
+| Packaging and release automation | `pyproject.toml`, `debian/`, `tools/release.py`, `.github/workflows/` |
 
-For packaging changes, run the release validation commands in
-[the release guide](docs/RELEASING.md). The source archive and installed wheel
-must work outside the repository.
+For a worked example, see [adding an organism](docs/ADDING_ORGANISMS.md).
+`cells` and `cells.py` are source-checkout entry points; the installed command uses
+`terminal_cells.cli:main`. `terminal_cells/__init__.py` exposes the compatibility API.
 
-## Reporting issues
+## Run the checks you need
 
-Include the program version (`cells --version`), operating system, Python
-version, terminal application, terminal size, and any relevant flags. A seed
-and approximate simulation time make animation problems much easier to reproduce.
-Native Windows support is not yet claimed; identify WSL separately from Windows.
+Run these from the repository root with the development environment activated:
 
-Submit a focused pull request describing the problem, resulting behavior, and
-validation. Contributions are accepted under the same [Zero-Clause BSD license](LICENSE)
-(SPDX: `0BSD`) as the project. By submitting a contribution, you license it under
-those terms. No copyright assignment or separate contributor license agreement
-is required. Only submit work you have the right to contribute, and identify any
-third-party material and its applicable terms.
+```sh
+# One test module
+python -m unittest discover -s tests -p 'test_scale.py' -v
 
-## Generated tests and performance
+# One specific test
+PYTHONPATH=tests python -m unittest test_scale.ScaleTests.test_directional_sprites_remain_one_or_two_characters -v
 
-Hypothesis explores seeded update/resize sequences, including tiny windows and
-scene presets. It checks finite geometry, population bounds, determinism, and
-rendering purity. The optional test is skipped when Hypothesis is absent; CI
-installs it. Preserve regressions as focused ordinary tests if an example exposes
-a bug. `python tools/benchmark.py` reports update/render p50 and p95 latencies;
-it excludes terminal output and does not impose hardware-dependent test limits.
+# Before submitting a code change
+ruff check .
+ruff format --check .
+python -m unittest discover -s tests -v
+```
 
-Regenerate `docs/cells.1` with `python tools/manpage.py` after changing CLI help.
-Run `ruff format .` before submitting formatting changes. `cells.py` and the
-`cells` executable remain source-checkout entry points; installed commands use
-`terminal_cells.cli:main`. Curses is imported only when interactive mode starts.
+Use `ruff format .` to apply formatting. Documentation-only changes need a link
+and command review; run any commands you introduce. Test behavior changes with a
+focused regression, advancing simulated time rather than sleeping. Terminal tests
+use pseudo-terminals to check input and cleanup. Hypothesis explores generated
+update/resize sequences; preserve useful failures as ordinary regression tests.
 
-Rare-event state and behavior live in `terminal_cells/events.py`; drawings live
-in `event_render.py`. Keep event scheduling on the director's seeded RNG and
-interactive wall-time clock, independent of simulation speed. Regenerate
-`tools/sightings.py` and `tools/colors.py` previews when changing events or inks.
+## Keep these guarantees
 
-Experimental tools keep model effects in `terminal_cells/lab.py`, input and the
-targeting and single-line footer in `interaction.py`, and pure drawing in
-`lab_render.py`. Preserve compartment ownership, immediate rupture, bounded
-feedback, and mouse restoration
-on every exit path. `python tools/experiments.py` regenerates the tool previews.
+- Drawing must not mutate the world or consume random numbers. Use `world.rng`
+  for simulation randomness and fixed simulation steps for reproducibility.
+- Respect membranes, exclusive ownership during capture, and population caps.
+- Preserve ASCII, colorless, and small-terminal behavior.
+- Rare sightings use the director's seeded RNG and unpaused wall-time clock,
+  independently of simulation speed.
+- Experimental tools act immediately, preserve sealed cargo, and restore mouse
+  and terminal modes on every exit path.
+
+## Check visual changes
+
+Include a screenshot or short recording, plus the command, seed, size, and
+approximate simulation time. Check `--ascii`, `--color never`, light backgrounds,
+and a compact terminal when relevant. A reviewer can help with other platforms.
+
+Regenerate only previews affected by your change:
+
+| Change | Command |
+| --- | --- |
+| Organisms and life cycles | `python tools/preview.py` |
+| Rare sightings | `python tools/sightings.py` |
+| Palette | `python tools/colors.py` |
+| Interactive tools | `python tools/experiments.py` |
+| Animated demo | `python tools/demo.py` |
+| CLI help/manual | `python tools/manpage.py` |
+
+The GIF generator needs Pillow and uses Noto Sans Runic or FreeMono for phage
+symbols when available; `--symbol-font PATH` supplies another Runic-capable font.
+`python tools/benchmark.py` reports update/render latency without terminal output;
+results depend on the machine and are not universal pass/fail limits.
+
+## Send a pull request or report
+
+Push your branch to your fork and open a focused PR. Explain the problem, resulting
+behavior, and checks performed. You do not need release credentials or to run
+publishing workflows. Packaging changes have extra checks in the
+[release guide](docs/RELEASING.md); archives and wheels must work outside a checkout.
+
+For bugs, describe what you saw. Add `cells --diagnostics`, your terminal app,
+command, seed, or a screenshot when available. Unknown details are fine; you can
+report an occasional event without reproducing it reliably. Report security
+issues using [SECURITY.md](SECURITY.md).
+
+Contributions use the project's [Zero-Clause BSD license](LICENSE) (`0BSD`).
+No copyright assignment or separate contributor license agreement is required.
+Only submit work you have the right to contribute, and identify third-party
+material and its applicable terms.

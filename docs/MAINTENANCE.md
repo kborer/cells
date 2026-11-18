@@ -23,32 +23,16 @@ there is one owner. Account owners should use MFA/passkeys and retain account
 recovery codes outside the repository. Current production approval deliberately
 permits the sole maintainer to approve a run they started.
 
-## Release checklist
+## Releases and failed publications
 
-1. Run Prepare release to generate a version/changelog patch. Review it in a PR;
-   include user-facing notes and terminal smoke-test results. Merge with checks.
-2. Tag the merged commit with its exact upstream version. Never move release tags.
-3. Run Publish on that tag with target `testpypi`. This builds and tests Python
-   archives and Ubuntu packages and produces a release manifest with source SHA,
-   version, archive names, and hashes. Preserve that run's artifacts.
-4. Run Publish on the same tag with target `pypi` and the successful candidate run
-   ID. Review the production environment approval. Production downloads the same
-   candidate archives; it does not rebuild them. It verifies the candidate run,
-   commit, version, file set, and digests before uploading.
-5. The workflow checks an actual installation from PyPI, assembles Python and
-   Ubuntu assets/checksums/source bundles, adds GitHub provenance, uploads a draft,
-   then publishes the complete immutable GitHub release. PyPI also emits its
-   publish attestations. Confirm links and download checksums.
-6. Prepare PPA source packages from the manifest and released source, review and
-   sign locally, upload, wait for Launchpad builds, then run the live PPA apt check.
-   The PPA's archive key is separate from your upload signing key.
+Follow the [release guide](RELEASING.md) for the authoritative preparation,
+staging, promotion, and recovery steps. Distribution-specific instructions live
+in [Ubuntu packaging](UBUNTU.md) and [Homebrew packaging](HOMEBREW.md).
 
-Build artifacts expire under GitHub's retention policy. If a candidate has
-expired, prepare a fresh candidate with a new package version when the previous
-version has already been uploaded. Publishing filenames cannot be overwritten.
-If publication partly succeeds, inspect PyPI and the draft release before any
-retry; do not force-upload or assume a failed job means nothing was published.
-If the immutable release is already public, ship corrections in a new release.
+Build artifacts expire under GitHub's retention policy. Preserve the successful
+candidate's manifest and artifacts until promotion is complete. If artifacts
+expire after a version was uploaded, a fresh candidate needs a new package version.
+An immutable published release needs a new release for corrections.
 
 ## Signing-key backup and recovery
 

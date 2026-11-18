@@ -12,13 +12,13 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Include cells --diagnostics output, your terminal application, and whether it has a light or dark background.
+      description: If available, include cells --diagnostics output, your terminal app, and its light or dark background. Unknown details are fine.
     validations:
-      required: true
+      required: false
   - type: textarea
     id: reproduce
     attributes:
       label: Reproduction
-      description: Include the command, seed, approximate simulation time, and any resize or key input. A screenshot or recording is useful for visual issues.
+      description: If known, include the command, seed, approximate time, and any resize or key input. Screenshots or recordings help; occasional events are welcome even without reliable reproduction.
     validations:
-      required: true
+      required: false

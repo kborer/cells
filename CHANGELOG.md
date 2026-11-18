@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add subtle near/far contrast to existing background particles, using stable
+  size cues and single-character marks without increasing particle counts.
+
 ## 0.1.2 — 2026-11-17
 
 - Improve terminal readability with thinner curved outlines, quieter cell

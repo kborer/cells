@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="940" viewBox="0 0 1020 940">
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="990" viewBox="0 0 1020 990">
 <title>cells palette audit: all semantic inks</title>
 <rect width="1020" height="100%" fill="#10171d"/>
 <g font-family="DejaVu Sans Mono,monospace" font-size="14">
-<rect x="0" width="340" height="940" fill="#10171d"/>
+<rect x="0" width="340" height="990" fill="#10171d"/>
 <text x="16" y="30" fill="#eeeeee">slide: extended / basic index</text>
 <rect x="16" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="46" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -72,7 +72,11 @@
 <text x="46" y="865" fill="#d7d7ff">NET 189/5</text>
 <rect x="16" y="877" width="20" height="16" fill="#949494"/>
 <text x="46" y="890" fill="#949494">GLASS 246/7</text>
-<rect x="340" width="340" height="940" fill="#10171d"/>
+<rect x="16" y="902" width="20" height="16" fill="#303030"/>
+<text x="46" y="915" fill="#303030">BACKGROUND_FAR 236/7</text>
+<rect x="16" y="927" width="20" height="16" fill="#585858"/>
+<text x="46" y="940" fill="#585858">BACKGROUND_NEAR 240/7</text>
+<rect x="340" width="340" height="990" fill="#10171d"/>
 <text x="356" y="30" fill="#eeeeee">amber: extended / basic index</text>
 <rect x="356" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="386" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -142,7 +146,11 @@
 <text x="386" y="865" fill="#d7d7ff">NET 189/5</text>
 <rect x="356" y="877" width="20" height="16" fill="#949494"/>
 <text x="386" y="890" fill="#949494">GLASS 246/7</text>
-<rect x="680" width="340" height="940" fill="#ffffff"/>
+<rect x="356" y="902" width="20" height="16" fill="#303030"/>
+<text x="386" y="915" fill="#303030">BACKGROUND_FAR 236/7</text>
+<rect x="356" y="927" width="20" height="16" fill="#585858"/>
+<text x="386" y="940" fill="#585858">BACKGROUND_NEAR 240/7</text>
+<rect x="680" width="340" height="990" fill="#ffffff"/>
 <text x="696" y="30" fill="#101010">light: extended / basic index</text>
 <rect x="696" y="52" width="20" height="16" fill="#bcbcbc"/>
 <text x="726" y="65" fill="#bcbcbc">DEBRIS 250/7</text>
@@ -212,4 +220,8 @@
 <text x="726" y="865" fill="#875faf">NET 97/5</text>
 <rect x="696" y="877" width="20" height="16" fill="#6c6c6c"/>
 <text x="726" y="890" fill="#6c6c6c">GLASS 242/0</text>
+<rect x="696" y="902" width="20" height="16" fill="#d0d0d0"/>
+<text x="726" y="915" fill="#d0d0d0">BACKGROUND_FAR 252/0</text>
+<rect x="696" y="927" width="20" height="16" fill="#949494"/>
+<text x="726" y="940" fill="#949494">BACKGROUND_NEAR 246/0</text>
 </g></svg>

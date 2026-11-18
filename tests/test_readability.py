@@ -3,11 +3,52 @@
 import math
 import unittest
 
-from terminal_cells import Bacterium, Cell, Frame, Ink, World, draw_bacterium, draw_cell
+from terminal_cells import (
+    Bacterium,
+    Cell,
+    Drifter,
+    Frame,
+    Ink,
+    World,
+    draw_bacterium,
+    draw_cell,
+    render,
+)
 from terminal_cells.render import contour_pixels
 
 
 class ReadabilityTests(unittest.TestCase):
+    def test_background_depth_is_stable_and_ascii_without_changing_particles(self):
+        world = World(80, 24, 42, rare_events=False)
+        world.cells.clear()
+        world.red_cells.clear()
+        world.bacteria.clear()
+        world.phages.clear()
+        world.hyphae.clear()
+        world.nutrients.clear()
+        world.debris = [Drifter(10, 10, 0, 0.6), Drifter(20, 10, 0, 1.1)]
+        before, rng = repr(world.debris), world.rng.getstate()
+        for unicode in (False, True):
+            frame = render(world, unicode)
+            self.assertEqual(frame.pixels[5][10].ink, Ink.BACKGROUND_FAR)
+            self.assertEqual(frame.pixels[5][20].ink, Ink.BACKGROUND_NEAR)
+            self.assertEqual(frame.pixels[5][10].char, ".")
+            self.assertEqual(frame.pixels[5][20].char, "·" if unicode else ":")
+            self.assertEqual(frame.pixels[5][21].char, " ")
+            if not unicode:
+                self.assertTrue(frame.plain().isascii())
+        self.assertEqual(repr(world.debris), before)
+        self.assertEqual(world.rng.getstate(), rng)
+
+    def test_cell_interior_occludes_both_background_depth_layers(self):
+        world = World(80, 24, 42, rare_events=False)
+        world.cells = [Cell(0, 40, 24, 12, 0, 0)]
+        world.debris = [Drifter(46, 24, 0, 0.6), Drifter(47, 24, 0, 1.1)]
+        for unicode in (False, True):
+            frame = render(world, unicode)
+            for x in (46, 47):
+                self.assertNotIn(frame.pixels[12][x].ink, (Ink.BACKGROUND_FAR, Ink.BACKGROUND_NEAR))
+
     def test_lines_are_one_character_wide_in_every_octant(self):
         for dx, dy in (
             (8, 4),

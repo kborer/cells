@@ -66,6 +66,8 @@ class Ink(Enum):
     ROTIFER = 32
     NET = 33
     GLASS = 34
+    BACKGROUND_FAR = 35
+    BACKGROUND_NEAR = 36
 
 
 # Entity hues retain their meaning across colored themes. Internal anatomy and
@@ -105,6 +107,8 @@ _DARK = [
     (216, 1),
     (189, 5),
     (246, 7),
+    (236, 7),
+    (240, 7),
 ]
 _LIGHT = [
     (250, 7),
@@ -141,6 +145,8 @@ _LIGHT = [
     (167, 1),
     (97, 5),
     (242, 0),
+    (252, 0),
+    (246, 0),
 ]
 _AMBER = list(_DARK)
 _AMBER[Ink.CYTOPLASM.value - 1] = (58, 3)
@@ -615,12 +621,15 @@ def render(world: World, unicode: bool = False) -> Frame:
     compact_view = frame.width < 110 or frame.height < 36
     draw_nutrients(frame, world, unicode)
     draw_hyphae(frame, world, unicode)
+    # Stable size-based depth cues add contrast without adding particles or
+    # consuming simulation randomness. Both layers remain behind cell bodies.
     for particle in world.debris:
-        frame.text(
-            round(particle.x),
-            round(particle.y / ASPECT),
-            "." if particle.size < 0.8 else "·:" if unicode else ".:",
-            Ink.DEBRIS,
+        distant = particle.size < 0.8
+        frame.point(
+            particle.x,
+            particle.y,
+            "." if distant else "·" if unicode else ":",
+            Ink.BACKGROUND_FAR if distant else Ink.BACKGROUND_NEAR,
         )
     for red in world.red_cells:
         rx, ry = disc_axes(red)

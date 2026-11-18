@@ -28,6 +28,11 @@ its actual selected palette. Use arrows or j/k to reach all entries.
 
 Bright lime is reserved for phage bodies; red entity outlines identify red blood
 cells. Viral genomes use a related green, while food uses a subdued green.
+Background particles use two neutral layers: smaller specks are fainter,
+and larger particles have slightly more contrast. Their size-based depth cues
+stay stable as they move; no extra particles are added. In colorless and basic
+color modes, `.` versus `:` (or Unicode `·`) retains a shape cue. This is a visual
+depth effect; all organisms still share the same two-dimensional simulation.
 Capture and viral lysis highlights are white. Experimental rupture debris retains
 the colors of its source cell and organelles.
 Internal structures retain their own colors: violet nuclei, lilac chromosomes,

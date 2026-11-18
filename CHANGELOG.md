@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Improve terminal readability with thinner curved outlines, quieter cell
+  interiors, simpler organelles and shorter flagella in compact windows, lower
+  default microbe/debris populations, and more space between immune cells.
+
 ## 0.1.1 — 2026-11-17
 
 - Refresh development tools and release provenance, clarify published installation

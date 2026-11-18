@@ -7,6 +7,10 @@ Native Windows support is not claimed; use WSL.
 
 80×24 is a useful minimum, and 120×40 shows more anatomy. Below 32×12 the
 simulation pauses and asks for a larger window. Resizing keeps the slide alive.
+Below 110 columns or 36 rows, the renderer shows fewer organelle details and
+shorter free-swimming flagella. The underlying organisms and life cycles remain
+active. Use `--density 0.7` for additional breathing room or `--density 1.5` for a
+busier slide.
 Help pauses the simulation; scroll with j/k or arrow keys. Quit with q/Escape.
 
 ## Colors and glyphs

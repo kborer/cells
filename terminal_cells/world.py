@@ -110,9 +110,9 @@ class World:
             0
             if self.scene == "microbial"
             else max(1 if area < 3000 else 2, min(8, round(area / 12500 * self.density))),
-            max(4, min(90, round(area / 850 * self.density))),
+            max(4, min(90, round(area / 1100 * self.density))),
             0 if self.scene == "microbial" else max(1, min(12, round(area / 4500 * self.density))),
-            max(5, min(100, round(area / 300 * self.density))),
+            max(5, min(100, round(area / 500 * self.density))),
         )
 
     def _populate(self) -> None:
@@ -1047,7 +1047,11 @@ class World:
                 continue
             dx, dy = cell.x - other.x, cell.y - other.y
             distance = math.hypot(dx, dy)
-            separation = cell.radius + other.radius + 1
+            separation = cell.radius + other.radius + 5
+            if cell.state is State.ENCLOSE:
+                separation += max(0, cell.capture_distance - cell.radius)
+            if other.state is State.ENCLOSE:
+                separation += max(0, other.capture_distance - other.radius)
             if 0 < distance < separation:
                 force = (separation - distance) * 0.7
                 vx += dx / distance * force

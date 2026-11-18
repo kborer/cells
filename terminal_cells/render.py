@@ -86,7 +86,7 @@ _DARK = [
     (75, 4),
     (183, 5),
     (231, 7),
-    (209, 1),
+    (173, 1),
     (66, 6),
     (225, 7),
     (250, 7),
@@ -203,12 +203,31 @@ class Frame:
             char = "│" if unicode else "|"
         else:
             char = "\\" if dx * dy > 0 else "/"
-        steps = max(1, math.ceil(max(abs(dx), abs(dy) / ASPECT) * 2))
-        for step in range(steps + 1):
-            self.point(x1 + dx * step / steps, y1 + dy * step / steps, char, ink)
+        for col, row in line_pixels(x1, y1, x2, y2):
+            self.put(col, row, char, ink)
 
     def plain(self) -> str:
         return "\n".join("".join(p.char for p in row) for row in self.pixels)
+
+
+def line_pixels(x1: float, y1: float, x2: float, y2: float):
+    # Rasterize in character coordinates: subpixel sampling can thicken
+    # diagonal strokes into staircases of adjacent slashes.
+    x, y, end_x, end_y = round(x1), round(y1 / ASPECT), round(x2), round(y2 / ASPECT)
+    width, height = abs(end_x - x), abs(end_y - y)
+    sx, sy = 1 if x < end_x else -1, 1 if y < end_y else -1
+    error = width - height
+    while True:
+        yield x, y
+        if (x, y) == (end_x, end_y):
+            break
+        twice = 2 * error
+        if twice > -height:
+            error -= height
+            x += sx
+        if twice < width:
+            error += width
+            y += sy
 
 
 def membrane_char(angle: float, unicode: bool) -> str:
@@ -217,6 +236,34 @@ def membrane_char(angle: float, unicode: bool) -> str:
     if abs(math.cos(angle)) > 0.9:
         return "│" if unicode else "|"
     return "/" if math.sin(2 * angle) > 0 else "\\"
+
+
+def contour_pixels(points):
+    """Keep an eight-connected, single-stroke path through sampled curves."""
+    sampled = []
+    for x, y, angle in points:
+        pixel = round(x), round(y / ASPECT), angle
+        if not sampled or pixel[:2] != sampled[-1][:2]:
+            sampled.append(pixel)
+    if not sampled:
+        return sampled
+    # Tiny rings need every corner to retain a visible enclosed body.
+    if (
+        max(p[0] for p in sampled) - min(p[0] for p in sampled) < 5
+        or max(p[1] for p in sampled) - min(p[1] for p in sampled) < 3
+    ):
+        return sampled
+    pixels = []
+    for pixel in sampled:
+        if len(pixels) >= 2:
+            previous, corner = pixels[-2:]
+            forward = (corner[0] - previous[0]) * (pixel[0] - corner[0]) + (
+                corner[1] - previous[1]
+            ) * (pixel[1] - corner[1])
+            if forward >= 0 and max(abs(pixel[0] - previous[0]), abs(pixel[1] - previous[1])) <= 1:
+                pixels.pop()
+        pixels.append(pixel)
+    return pixels
 
 
 def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: bool = True) -> None:
@@ -238,33 +285,35 @@ def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: b
                 # Occlude the background, with sparse, stable cytoplasmic granules.
                 speckle = (
                     (col - round(cell.x)) * 31 + (row - round(cell.y / ASPECT)) * 17 + cell.id * 7
-                ) % 19
+                ) % 43
                 char = "·" if unicode else "."
-                frame.put(col, row, char if speckle < 3 else " ", Ink.CYTOPLASM)
-    # One glyph per boundary pixel avoids the doubled slashes and parallel
-    # outlines produced by repeatedly rounding dense contour samples.
+                frame.put(col, row, char if speckle == 0 else " ", Ink.CYTOPLASM)
     mouth = 0.0
     if cell.state is State.ENCLOSE:
         mouth = 0.34 * smooth(cell.elapsed / 1.5) * (1 - smooth((cell.elapsed - SEAL_TIME) / 1.5))
-    for col, row in body:
-        if any((col + dx, row + dy) not in body for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]):
-            angle = math.atan2(row * ASPECT - cell.y, col - cell.x)
-            if mouth and abs(angle_delta(angle, cell.reach_angle)) < mouth:
-                continue
-            frame.put(
-                col,
-                row,
-                membrane_char(angle, unicode),
-                Ink.NEUTROPHIL if cell.kind == "neutrophil" else Ink.MEMBRANE,
-            )
+    samples = max(80, math.ceil(cell.radius * 16))
+    points = []
+    for index in range(samples + 1):
+        angle = index * TAU / samples
+        radius = cell.body_outline(angle, now)
+        points.append((cell.x + math.cos(angle) * radius, cell.y + math.sin(angle) * radius, angle))
+    for col, row, angle in contour_pixels(points):
+        if mouth and abs(angle_delta(angle, cell.reach_angle)) < mouth:
+            continue
+        frame.put(
+            col,
+            row,
+            membrane_char(angle, unicode),
+            Ink.NEUTROPHIL if cell.kind == "neutrophil" else Ink.MEMBRANE,
+        )
     if cell.state is State.ENCLOSE:
         draw_capture(frame, cell, unicode, now)
     draw_organelles(frame, cell, now, unicode)
     if cell.kind == "neutrophil":
         for col, row in body:
             dx, dy = col - round(cell.x), row - round(cell.y / ASPECT)
-            if (dx * 17 + dy * 31) % 13 == 0 and math.hypot(dx, dy * ASPECT) < cell.radius * 0.78:
-                frame.put(col, row, ":", Ink.NEUTROPHIL)
+            if (dx * 17 + dy * 31) % 41 == 0 and math.hypot(dx, dy * ASPECT) < cell.radius * 0.78:
+                frame.put(col, row, ":", Ink.CYTOPLASM)
     for vesicle in cell.vesicles:
         x = cell.x + math.cos(vesicle.angle) * cell.radius * vesicle.distance
         y = cell.y + math.sin(vesicle.angle) * cell.radius * vesicle.distance
@@ -302,15 +351,14 @@ def draw_ring(
     # Mask rasterized glyphs, rather than samples: many samples can land on a
     # single glyph, which otherwise kept a dissolving envelope visibly intact.
     samples = max(40, math.ceil(max(rx, ry) * 16))
-    pixels = {}
-    for index in range(samples):
+    points = []
+    for index in range(samples + 1):
         angle = index * TAU / samples
-        col, row = round(x + math.cos(angle) * rx), round((y + math.sin(angle) * ry) / ASPECT)
-        pixels[col, row] = membrane_char(angle, unicode)
-    for (col, row), char in pixels.items():
+        points.append((x + math.cos(angle) * rx, y + math.sin(angle) * ry, angle))
+    for col, row, angle in contour_pixels(points):
         order = ((col - round(x)) * 7 + (row - round(y / ASPECT)) * 11) % 17 / 17
         if order < fraction:
-            frame.put(col, row, char, ink)
+            frame.put(col, row, membrane_char(angle, unicode), ink)
 
 
 def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None:
@@ -327,7 +375,12 @@ def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None
         if math.hypot(dx, dy) < cell.outline(math.atan2(dy, dx), now) - 1.1:
             frame.put(col, row, char, ink)
 
+    compact = frame.width < 110 or frame.height < 36 or cell.radius < 13
+    visible = {"mitochondrion": 0, "reticulum": 0, "lysosome": 0}
     for network in cell.organelles:
+        visible[network.kind] += 1
+        if compact and visible[network.kind] > (2 if network.kind == "mitochondrion" else 1):
+            continue
         ink = {
             "mitochondrion": Ink.MITOCHONDRION,
             "reticulum": Ink.RETICULUM,
@@ -344,15 +397,20 @@ def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None
                 (cell.x + (x + wiggle) * cell.radius, cell.y + (y + wiggle * 0.6) * cell.radius)
             )
         for a, b in network.edges:
+            # Keep the envelope distinct from the nucleus: no ladder rungs,
+            # and just one fold in compact windows. State remains unchanged.
+            if network.kind == "reticulum" and (
+                a >= (6 if compact else 12) or b >= (6 if compact else 12)
+            ):
+                continue
             if cell.state is State.DIVIDE and cell.elapsed >= 40 and sides[a] != sides[b]:
                 continue
             x, y = points[a]
             xx, yy = points[b]
             dx, dy = xx - x, yy - y
             char = membrane_char(math.atan2(dy, dx) + math.pi / 2, unicode)
-            steps = max(1, math.ceil(max(abs(dx), abs(dy) / ASPECT) * 2))
-            for step in range(steps + 1):
-                plot(x + dx * step / steps, y + dy * step / steps, char, ink)
+            for col, row in line_pixels(x, y, xx, yy):
+                plot(col, row * ASPECT, char, ink)
         if network.kind == "lysosome":
             plot(*points[0], "o", ink)
         elif network.kind == "mitochondrion":
@@ -554,6 +612,7 @@ def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
 
 def render(world: World, unicode: bool = False) -> Frame:
     frame = Frame(round(world.width), round(world.height / ASPECT))
+    compact_view = frame.width < 110 or frame.height < 36
     draw_nutrients(frame, world, unicode)
     draw_hyphae(frame, world, unicode)
     for particle in world.debris:
@@ -580,7 +639,9 @@ def render(world: World, unicode: bool = False) -> Frame:
     for bacterium in world.bacteria.values():
         owner = next((c for c in world.cells if c.id == bacterium.owner), None)
         if owner is None or owner.state is not State.ENCLOSE:
-            draw_bacterium(frame, bacterium, unicode, world.time, world)
+            draw_bacterium(
+                frame, bacterium, unicode, world.time, world, tail=0.55 if compact_view else 1.0
+            )
     for cell in sorted(world.cells, key=lambda c: c.radius):
         event = world.events.active
         if event is not None and event.kind == "net" and event.source == cell.id and event.age >= 2:
@@ -733,20 +794,24 @@ def draw_special_microbe(
     kind, ink = microbe.kind, BACTERIA_INKS[microbe.kind]
 
     def ellipse(cx, cy, a, b):
-        previous = point(cx + a, cy)
-        for index in range(1, 49):
-            theta = index * TAU / 48
-            current = point(cx + math.cos(theta) * a, cy + math.sin(theta) * b)
-            frame.line(*previous, *current, ink, unicode)
-            previous = current
+        points = []
+        for index in range(65):
+            theta = index * TAU / 64
+            x, y = point(cx + math.cos(theta) * a, cy + math.sin(theta) * b)
+            points.append((x, y, theta + microbe.angle))
+        for col, row, angle in contour_pixels(points):
+            frame.put(col, row, membrane_char(angle, unicode), ink)
 
     def curve(points):
+        samples = []
         previous = None
         for along, across in points:
-            current = point(along, across)
-            if previous:
-                frame.line(*previous, *current, ink, unicode)
-            previous = current
+            x, y = point(along, across)
+            tangent = math.atan2(y - previous[1], x - previous[0]) if previous else microbe.angle
+            samples.append((x, y, tangent + math.pi / 2))
+            previous = x, y
+        for col, row, angle in contour_pixels(samples):
+            frame.put(col, row, membrane_char(angle, unicode), ink)
 
     if kind == "bacillus":
         for index in range(microbe.units):
@@ -878,18 +943,15 @@ def draw_bacterium(
             previous = x, y
     else:
         # A membrane around a visible nucleoid replaces the old one-glyph body.
-        for index in range(64):
-            if lysis and index % 7 < viral[1] * 6:
-                continue
+        points = []
+        for index in range(65):
             angle = index * TAU / 64
             x, y = point(math.cos(angle) * a, math.sin(angle) * b)
-            frame.point(
-                x,
-                y,
-                membrane_char(angle + bacterium.angle, unicode),
-                Ink.LYSIS if lysis else ink,
-                True,
-            )
+            points.append((x, y, angle + bacterium.angle))
+        for col, row, angle in contour_pixels(points):
+            if lysis and int((angle - bacterium.angle) / TAU * 64) % 7 < viral[1] * 6:
+                continue
+            frame.put(col, row, membrane_char(angle, unicode), Ink.LYSIS if lysis else ink, True)
     frame.point(
         bacterium.x,
         bacterium.y,

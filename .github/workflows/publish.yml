@@ -143,7 +143,9 @@ jobs:
           PY
   github-release:
     name: Assemble and publish immutable GitHub release
-    if: inputs.target == 'pypi'
+    # Production intentionally skips the staging jobs. Override implicit success()
+    # while still requiring selection and publication to succeed.
+    if: ${{ !cancelled() && inputs.target == 'pypi' && needs.selection.result == 'success' && needs.publish.result == 'success' }}
     needs: [selection, publish]
     runs-on: ubuntu-latest
     timeout-minutes: 10

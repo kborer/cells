@@ -1,6 +1,6 @@
 """A living terminal microscope slide; the public compatibility API."""
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 from .models import (
     TAU,

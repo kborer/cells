@@ -1374,21 +1374,32 @@ class TerminalTests(unittest.TestCase):
         start = time.monotonic()
         sent = False
         event_index = 0
+        ready_at = None
         try:
             while process.poll() is None and time.monotonic() - start < 4:
-                if select.select([master], [], [], 0.02)[0]:
+                readable = select.select([master], [], [], 0.02)[0]
+                if readable:
                     output.extend(os.read(master, 65536))
-                    if activity is not None:
-                        activity.append(time.monotonic() - start)
+                now = time.monotonic()
+                if ready_at is None:
+                    # Do not send raw mouse escapes before curses enables input.
+                    # Interactive sessions must have drawn their first footer.
+                    marker = b"? help" if "--interactive" in extra else b"\x1b[?1049h"
+                    if marker in output:
+                        ready_at = now
+                elapsed = now - ready_at if ready_at is not None else None
+                if readable and activity is not None and elapsed is not None:
+                    activity.append(elapsed)
+                # Input and output activity share a clock that starts at UI readiness,
+                # so interpreter startup cannot reorder mouse press/release events.
                 while (
-                    event_index < len(events) and time.monotonic() - start >= events[event_index][0]
+                    elapsed is not None
+                    and event_index < len(events)
+                    and elapsed >= events[event_index][0]
                 ):
                     os.write(master, events[event_index][1])
                     event_index += 1
-                # SIGTERM cleanup is meaningful once curses has initialized.
-                # A loaded runner can take more than 200 ms just to import Python.
-                ready = not terminate or b"\x1b[?1049h" in output
-                if not sent and ready and time.monotonic() - start > 0.2:
+                if not sent and elapsed is not None and elapsed > 0.2:
                     if resize:
                         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 16, 40, 0, 0))
                         process.send_signal(signal.SIGWINCH)
@@ -1465,6 +1476,15 @@ class TerminalTests(unittest.TestCase):
         if b"1006" not in output:
             self.skipTest("terminal does not advertise SGR mouse reports")
         self.assertIn(b"? help", output)
+
+    def test_mouse_input_waits_for_ui_after_slow_interpreter_startup(self):
+        _, output = self.session(
+            b"3\x1b[<0;2;2M\x1b[<0;2;2m",
+            ("--interactive", "--ascii", "--duration", ".7"),
+            startup_delay=0.5,
+        )
+        self.assertIn(b"? help", output)
+        self.assertNotIn(b"^[[<", output, "mouse input must not echo before curses starts")
 
     def test_mouse_release_keeps_animation_running_without_further_input(self):
         activity = []

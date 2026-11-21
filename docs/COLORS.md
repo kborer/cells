@@ -35,6 +35,15 @@ color modes, `.` versus `:` (or Unicode `·`) retains a shape cue. This is a vis
 depth effect; all organisms still share the same two-dimensional simulation.
 Capture and viral lysis highlights are white. Experimental rupture debris retains
 the colors of its source cell and organelles.
+With `--fill` on a 256-color terminal, cell bodies are also tinted from behind:
+each terminal cell pairs a dark background color with a foreground glyph, so
+cytoplasm, nuclei, and red blood cells read as solid shapes while membranes,
+organelles, and microbes stay as glyphs on top. Outlines keep the plain slide
+background for a crisp edge, and captions and help stay untinted. Nuclei and the
+pale centers of red blood cells use the tint instead of a shading texture. The
+tints assume a near-black terminal background (near-white for `light`); on other
+backgrounds bodies may blend in. The `mono` theme, basic-color terminals, and
+`--snapshot` output stay glyph-only.
 Internal structures retain their own colors: violet nuclei, lilac chromosomes,
 blue spindles, salmon mitochondrial tubules, teal ER, and muted-green vesicles.
 Color families can be reused inside cells or for temporary effects because their

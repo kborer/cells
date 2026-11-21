@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="990" viewBox="0 0 1020 990">
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="1115" viewBox="0 0 1020 1115">
 <title>cells palette audit: all semantic inks</title>
 <rect width="1020" height="100%" fill="#10171d"/>
 <g font-family="DejaVu Sans Mono,monospace" font-size="14">
-<rect x="0" width="340" height="990" fill="#10171d"/>
+<rect x="0" width="340" height="1115" fill="#10171d"/>
 <text x="16" y="30" fill="#eeeeee">slide: extended / basic index</text>
 <rect x="16" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="46" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -76,7 +76,17 @@
 <text x="46" y="915" fill="#303030">BACKGROUND_FAR 236/7</text>
 <rect x="16" y="927" width="20" height="16" fill="#585858"/>
 <text x="46" y="940" fill="#585858">BACKGROUND_NEAR 240/7</text>
-<rect x="340" width="340" height="990" fill="#10171d"/>
+<rect x="16" y="952" width="20" height="16" fill="#262626"/>
+<text x="46" y="965" fill="#eeeeee">FILL_CYTOPLASM 235/0</text>
+<rect x="16" y="977" width="20" height="16" fill="#303030"/>
+<text x="46" y="990" fill="#eeeeee">FILL_NEUTROPHIL 236/0</text>
+<rect x="16" y="1002" width="20" height="16" fill="#5f005f"/>
+<text x="46" y="1015" fill="#eeeeee">FILL_NUCLEUS 53/0</text>
+<rect x="16" y="1027" width="20" height="16" fill="#5f0000"/>
+<text x="46" y="1040" fill="#eeeeee">FILL_RED 52/0</text>
+<rect x="16" y="1052" width="20" height="16" fill="#1c1c1c"/>
+<text x="46" y="1065" fill="#eeeeee">FILL_RED_PALE 234/0</text>
+<rect x="340" width="340" height="1115" fill="#10171d"/>
 <text x="356" y="30" fill="#eeeeee">amber: extended / basic index</text>
 <rect x="356" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="386" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -150,7 +160,17 @@
 <text x="386" y="915" fill="#303030">BACKGROUND_FAR 236/7</text>
 <rect x="356" y="927" width="20" height="16" fill="#585858"/>
 <text x="386" y="940" fill="#585858">BACKGROUND_NEAR 240/7</text>
-<rect x="680" width="340" height="990" fill="#ffffff"/>
+<rect x="356" y="952" width="20" height="16" fill="#1c1c1c"/>
+<text x="386" y="965" fill="#eeeeee">FILL_CYTOPLASM 234/0</text>
+<rect x="356" y="977" width="20" height="16" fill="#303030"/>
+<text x="386" y="990" fill="#eeeeee">FILL_NEUTROPHIL 236/0</text>
+<rect x="356" y="1002" width="20" height="16" fill="#5f005f"/>
+<text x="386" y="1015" fill="#eeeeee">FILL_NUCLEUS 53/0</text>
+<rect x="356" y="1027" width="20" height="16" fill="#5f0000"/>
+<text x="386" y="1040" fill="#eeeeee">FILL_RED 52/0</text>
+<rect x="356" y="1052" width="20" height="16" fill="#1c1c1c"/>
+<text x="386" y="1065" fill="#eeeeee">FILL_RED_PALE 234/0</text>
+<rect x="680" width="340" height="1115" fill="#ffffff"/>
 <text x="696" y="30" fill="#101010">light: extended / basic index</text>
 <rect x="696" y="52" width="20" height="16" fill="#bcbcbc"/>
 <text x="726" y="65" fill="#bcbcbc">DEBRIS 250/7</text>
@@ -224,4 +244,14 @@
 <text x="726" y="915" fill="#b2b2b2">BACKGROUND_FAR 249/0</text>
 <rect x="696" y="927" width="20" height="16" fill="#8a8a8a"/>
 <text x="726" y="940" fill="#8a8a8a">BACKGROUND_NEAR 245/0</text>
+<rect x="696" y="952" width="20" height="16" fill="#e4e4e4"/>
+<text x="726" y="965" fill="#101010">FILL_CYTOPLASM 254/7</text>
+<rect x="696" y="977" width="20" height="16" fill="#eeeeee"/>
+<text x="726" y="990" fill="#101010">FILL_NEUTROPHIL 255/7</text>
+<rect x="696" y="1002" width="20" height="16" fill="#d7d7ff"/>
+<text x="726" y="1015" fill="#101010">FILL_NUCLEUS 189/7</text>
+<rect x="696" y="1027" width="20" height="16" fill="#ffd7d7"/>
+<text x="726" y="1040" fill="#101010">FILL_RED 224/7</text>
+<rect x="696" y="1052" width="20" height="16" fill="#eeeeee"/>
+<text x="726" y="1065" fill="#101010">FILL_RED_PALE 255/7</text>
 </g></svg>

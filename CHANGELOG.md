@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add `--fill`, which tints cell bodies from behind on 256-color terminals:
+  cytoplasm, nuclei, and red blood cells get background colors while membranes,
+  organelles, and microbes stay as glyphs on top.
+
 ## 0.1.3 — 2026-11-18
 
 - Add subtle near/far contrast to existing background particles, using stable

@@ -7,6 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from terminal_cells import Ink, PALETTES  # noqa: E402
+from terminal_cells.render import FILL_INKS  # noqa: E402
 from preview import xterm_hex
 
 
@@ -30,9 +31,11 @@ def main():
             extended, basic = PALETTES[theme][index]
             y = 65 + index * row_height
             color = xterm_hex(extended)
+            # Background tints are swatches only; their own color would hide the label.
+            label = fg if ink in FILL_INKS else color
             lines += [
                 f'<rect x="{left + 16}" y="{y - 13}" width="20" height="16" fill="{color}"/>',
-                f'<text x="{left + 46}" y="{y}" fill="{color}">{escape(ink.name)} {extended}/{basic}</text>',
+                f'<text x="{left + 46}" y="{y}" fill="{label}">{escape(ink.name)} {extended}/{basic}</text>',
             ]
     lines += ["</g></svg>"]
     path = Path(__file__).resolve().parents[1] / "docs/colors.svg"

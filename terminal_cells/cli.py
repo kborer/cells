@@ -17,7 +17,7 @@ import time
 from .models import STEP, State, division_stage, viral_stage
 from .world import World
 from .interaction import Interaction, enable_mouse, restore_mouse, read_click
-from .render import Frame, HELP_INKS, Ink, PALETTES, help_lines, overlay, render
+from .render import FILL_INKS, Frame, HELP_INKS, Ink, PALETTES, help_lines, overlay, render
 from . import __version__
 
 
@@ -46,13 +46,25 @@ def advance_frame(world: World, accumulator: float, *, events: bool = True) -> f
 
 
 class TerminalRenderer:
-    def __init__(self, screen, theme: str, color: str = "auto", backend=None):
+    def __init__(self, screen, theme: str, color: str = "auto", backend=None, fill: bool = False):
         self.curses = backend if backend is not None else load_curses()
         self.color = color
         self.screen = screen
         self.previous: Frame | None = None
         self.attributes: dict[Ink, int] = {ink: 0 for ink in Ink}
+        # Background tints need 256 colors and spare color pairs for each
+        # (glyph ink, tint) combination; otherwise bodies stay glyph-only.
+        self.fill = False
+        self._palette: list[int] = []
+        self._pairs: dict[tuple[Ink, Ink], int] = {}
         self._colors(theme)
+        if fill and self._palette and theme != "mono":
+            # Reserve a pair for every (glyph ink, tint) combination up front, so
+            # tinting never runs out of pairs halfway through a slide. This stays
+            # below 256, which also fits the 8-bit pair field of A_COLOR.
+            needed = len(Ink) + (len(Ink) - len(FILL_INKS)) * len(FILL_INKS)
+            pairs = getattr(self.curses, "COLOR_PAIRS", 0)
+            self.fill = self.curses.COLORS >= 256 and pairs > needed
 
     def _colors(self, theme: str) -> None:
         curses = self.curses
@@ -71,6 +83,25 @@ class TerminalRenderer:
                 self.attributes[ink] = curses.color_pair(ink.value)
             except curses.error:
                 pass
+        self._palette = [extended for extended, _ in PALETTES[theme]]
+
+    def _attribute(self, ink: Ink, bg: Ink | None) -> int:
+        if bg is None or not self.fill:
+            return self.attributes[ink]
+        key = ink, bg
+        if key not in self._pairs:
+            number = len(Ink) + 1 + len(self._pairs)
+            try:
+                self.curses.init_pair(
+                    number, self._palette[ink.value - 1], self._palette[bg.value - 1]
+                )
+            except self.curses.error:
+                # Tinted frames replace some textures with spaces, so a missing
+                # pair would erase them. Fall back to glyph-only frames and repaint.
+                self.fill = False
+                return self.attributes[ink]
+            self._pairs[key] = self.curses.color_pair(number)
+        return self._pairs[key]
 
     def draw(self, frame: Frame) -> None:
         curses = self.curses
@@ -88,15 +119,18 @@ class TerminalRenderer:
                 # Group adjacent changed characters with the same attributes.
                 start = x
                 chars = []
+                style = pixel.ink, pixel.bold, pixel.bg
                 while x < frame.width:
                     current = row[x]
-                    if (current.ink, current.bold) != (pixel.ink, pixel.bold):
+                    if (current.ink, current.bold, current.bg) != style:
                         break
                     if previous and previous.pixels[y][x] == current:
                         break
                     chars.append(current.char)
                     x += 1
-                attributes = self.attributes[pixel.ink] | (curses.A_BOLD if pixel.bold else 0)
+                attributes = self._attribute(pixel.ink, pixel.bg) | (
+                    curses.A_BOLD if pixel.bold else 0
+                )
                 try:
                     self.screen.addstr(y, start, "".join(chars), attributes)
                 except curses.error:
@@ -105,7 +139,8 @@ class TerminalRenderer:
                     pass
         self.screen.noutrefresh()
         curses.doupdate()
-        self.previous = frame
+        # A frame drawn after fill was switched off is repainted in full next time.
+        self.previous = frame if self.fill or not frame.fill else None
 
 
 def run(screen, args: argparse.Namespace) -> None:
@@ -139,7 +174,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
         microscope_events=not args.calm,
     )
     interaction = Interaction(columns // 2, rows // 2, mouse=mouse) if args.interactive else None
-    renderer = TerminalRenderer(screen, args.theme, args.color)
+    renderer = TerminalRenderer(screen, args.theme, args.color, fill=args.fill)
     unicode = use_unicode(args.unicode, screen.encoding)
     paused, help_visible, stats = False, False, args.stats
     help_offset = 0
@@ -244,7 +279,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 notice, notice_until = " / ".join(dict.fromkeys(phases)), tick + 1
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
-        frame = render(world, unicode)
+        frame = render(world, unicode, renderer.fill)
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
         elif help_visible:
@@ -408,6 +443,11 @@ def parser() -> argparse.ArgumentParser:
         default="auto",
         help="auto respects nonempty NO_COLOR; always overrides it",
     )
+    display.add_argument(
+        "--fill",
+        action="store_true",
+        help="tint cell bodies behind their glyphs (256-color terminals)",
+    )
     chars = display.add_mutually_exclusive_group()
     chars.add_argument(
         "--unicode",
@@ -490,6 +530,7 @@ def diagnostics(args) -> dict:
         "microscope_events": not args.no_events and not args.calm,
         "interactive_requested": args.interactive,
         "color_requested": use_color(args.color),
+        "fill_requested": args.fill,
         "unicode_requested": use_unicode(args.unicode, sys.stdout.encoding),
         "note": "Capabilities are requested settings; actual colors depend on terminal support.",
     }

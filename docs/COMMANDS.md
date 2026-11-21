@@ -32,6 +32,7 @@ Screensaver mode exits on any key. Resizing does not exit it.
 | `--calm` | Off | 0.5× speed, 10 FPS, and no micropipette; explicit speed/FPS override |
 | `--no-events` | Off | Disable rare sightings |
 | `--color auto\|always\|never` | `auto` | Color policy; auto respects nonempty `NO_COLOR` |
+| `--fill` | Off | Tint cell bodies behind their glyphs; needs 256 colors |
 | `--unicode auto\|always\|never` | `auto` | Glyph policy; auto checks UTF encoding |
 | `--stats` | Off | Show population and lifecycle statistics |
 | `--observe` | Off | Caption events and lifecycle stages |

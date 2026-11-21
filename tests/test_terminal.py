@@ -13,7 +13,8 @@ from unittest.mock import patch
 
 from terminal_cells import Frame, Ink, STEP, World
 from terminal_cells.cli import TerminalRenderer, advance_frame, main, parser, use_color, use_unicode
-from terminal_cells.render import help_lines
+from terminal_cells.models import State
+from terminal_cells.render import FILL_INKS, KEEP, PALETTES, help_lines, render
 
 
 class FakeCurses:
@@ -21,6 +22,7 @@ class FakeCurses:
         pass
 
     COLORS = 256
+    COLOR_PAIRS = 256
     COLOR_BLACK, COLOR_WHITE, A_BOLD = 0, 7, 256
 
     def __init__(self, colors=True, defaults=True):
@@ -102,6 +104,101 @@ class TerminalTests(unittest.TestCase):
         disabled = FakeCurses(colors=False)
         TerminalRenderer(Screen(), "slide", "always", disabled)
         self.assertFalse(disabled.pairs)
+
+    def test_fill_policy_needs_256_colors_and_a_colored_theme(self):
+        def fill(theme="slide", color="always", backend=None):
+            backend = backend or FakeCurses()
+            return TerminalRenderer(Screen(), theme, color, backend, fill=True).fill
+
+        self.assertTrue(fill())
+        self.assertTrue(fill("light") and fill("amber"))
+        self.assertFalse(TerminalRenderer(Screen(), "slide", "always", FakeCurses()).fill)
+        self.assertFalse(fill("mono"))
+        self.assertFalse(fill(color="never"))
+        basic = FakeCurses()
+        basic.COLORS = 8
+        self.assertFalse(fill(backend=basic))
+        few_pairs = FakeCurses()
+        few_pairs.COLOR_PAIRS = len(Ink) + 2
+        self.assertFalse(fill(backend=few_pairs))
+        self.assertFalse(parser().parse_args([]).fill)
+        self.assertTrue(parser().parse_args(["--fill"]).fill)
+
+    def test_fill_pairs_glyph_ink_with_body_tint(self):
+        backend, screen = FakeCurses(), Screen()
+        renderer = TerminalRenderer(screen, "slide", "always", backend, fill=True)
+        frame = Frame(5, 3, fill=True)
+        frame.put(1, 1, " ", Ink.CYTOPLASM, bg=Ink.FILL_CYTOPLASM)
+        frame.put(1, 1, "o", Ink.VESICLE)  # a glyph drawn later keeps the tint
+        frame.put(2, 1, "o", Ink.VESICLE, bg=None)
+        renderer.draw(frame)
+        number = len(Ink) + 1
+        palette = PALETTES["slide"]
+        self.assertEqual(
+            backend.pairs[-1],
+            (
+                number,
+                palette[Ink.VESICLE.value - 1][0],
+                palette[Ink.FILL_CYTOPLASM.value - 1][0],
+            ),
+        )
+        self.assertIn((1, 1, "o", number << 9), screen.writes)
+        self.assertIn((1, 2, "o", Ink.VESICLE.value << 9), screen.writes)
+        # A change of tint alone is redrawn; an unchanged frame writes nothing.
+        screen.writes.clear()
+        renderer.draw(frame)
+        self.assertFalse(screen.writes)
+        retinted = Frame(5, 3, fill=True)
+        retinted.pixels = [list(row) for row in frame.pixels]
+        retinted.put(1, 1, "o", Ink.VESICLE, bg=Ink.FILL_NUCLEUS)
+        renderer.draw(retinted)
+        self.assertEqual([write[:3] for write in screen.writes], [(1, 1, "o")])
+
+    def test_fill_keeps_sprites_tinted_but_clears_captions(self):
+        frame = Frame(8, 3, fill=True)
+        for col in range(8):
+            frame.put(col, 1, " ", Ink.RED_DIM, bg=Ink.FILL_RED)
+        frame.text(0, 1, "ab")
+        frame.text(4, 1, "-<", Ink.PHAGE, bg=KEEP)
+        self.assertEqual([p.bg for p in frame.pixels[1][:2]], [None, None])
+        self.assertEqual([p.bg for p in frame.pixels[1][4:6]], [Ink.FILL_RED, Ink.FILL_RED])
+        plain = Frame(2, 1)
+        plain.put(0, 0, " ", Ink.RED_DIM, bg=Ink.FILL_RED)
+        self.assertIsNone(plain.pixels[0][0].bg, "glyph-only frames never carry a tint")
+
+    def test_failed_tint_pair_falls_back_to_glyph_frames(self):
+        class Refusing(FakeCurses):
+            def init_pair(self, number, *args):
+                if number > len(Ink):
+                    raise self.error()
+                super().init_pair(number, *args)
+
+        backend, screen = Refusing(), Screen()
+        renderer = TerminalRenderer(screen, "slide", "always", backend, fill=True)
+        frame = Frame(5, 3, fill=True)
+        frame.put(1, 1, " ", Ink.NUCLEUS, bg=Ink.FILL_NUCLEUS)
+        renderer.draw(frame)
+        self.assertFalse(renderer.fill)
+        self.assertIsNone(renderer.previous, "the next glyph-only frame must repaint fully")
+
+    def test_fill_frames_tint_bodies_but_keep_outlines_on_the_slide(self):
+        world = World(120, 40, 42)
+        enclosing = False
+        # Includes an engulfment, whose wrapping pseudopods are outer membrane too.
+        for at in (4.7, 20):
+            while world.time < at:
+                world.update(STEP)
+            enclosing |= any(cell.state is State.ENCLOSE for cell in world.cells)
+            plain, filled = render(world, True), render(world, True, fill=True)
+            self.assertTrue(all(p.bg is None for row in plain.pixels for p in row))
+            tints = {p.bg for row in filled.pixels for p in row} - {None}
+            self.assertTrue(tints <= set(FILL_INKS))
+            self.assertTrue(tints & {Ink.FILL_CYTOPLASM, Ink.FILL_NEUTROPHIL})
+            for row in filled.pixels:
+                for pixel in row:
+                    if pixel.ink in (Ink.MEMBRANE, Ink.NEUTROPHIL, Ink.RED):
+                        self.assertIsNone(pixel.bg)
+        self.assertTrue(enclosing)
 
     def test_diff_output_resize_and_bottom_right_errors(self):
         backend, screen = FakeCurses(), Screen()

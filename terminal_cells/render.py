@@ -68,6 +68,12 @@ class Ink(Enum):
     GLASS = 34
     BACKGROUND_FAR = 35
     BACKGROUND_NEAR = 36
+    # Background tints for filled bodies: glyphs keep their ink and draw on top.
+    FILL_CYTOPLASM = 37
+    FILL_NEUTROPHIL = 38
+    FILL_NUCLEUS = 39
+    FILL_RED = 40
+    FILL_RED_PALE = 41
 
 
 # Entity hues retain their meaning across colored themes. Internal anatomy and
@@ -109,6 +115,11 @@ _DARK = [
     (246, 7),
     (236, 7),
     (240, 7),
+    (235, 0),
+    (236, 0),
+    (53, 0),
+    (52, 0),
+    (234, 0),
 ]
 _LIGHT = [
     (250, 7),
@@ -147,12 +158,25 @@ _LIGHT = [
     (242, 0),
     (249, 0),
     (245, 0),
+    (254, 7),
+    (255, 7),
+    (189, 7),
+    (224, 7),
+    (255, 7),
 ]
 _AMBER = list(_DARK)
 _AMBER[Ink.CYTOPLASM.value - 1] = (58, 3)
 _AMBER[Ink.TEXT.value - 1] = (230, 7)
 _AMBER[Ink.MUTED.value - 1] = (137, 3)
+_AMBER[Ink.FILL_CYTOPLASM.value - 1] = (234, 0)
 PALETTES = {"slide": _DARK, "amber": _AMBER, "light": _LIGHT, "mono": [(244, 7)] * len(Ink)}
+FILL_INKS = (
+    Ink.FILL_CYTOPLASM,
+    Ink.FILL_NEUTROPHIL,
+    Ink.FILL_NUCLEUS,
+    Ink.FILL_RED,
+    Ink.FILL_RED_PALE,
+)
 
 
 BACTERIA_INKS = dict(
@@ -178,29 +202,54 @@ class Pixel:
     char: str = " "
     ink: Ink = Ink.DEBRIS
     bold: bool = False
+    # Optional background tint; None keeps the terminal background.
+    bg: Ink | None = None
 
 
 EMPTY = Pixel()
+KEEP = object()
 
 
 class Frame:
-    def __init__(self, columns: int, rows: int):
+    """A character grid. With ``fill``, bodies also carry background tints.
+
+    Fill mode pairs a background color with a foreground glyph in each cell:
+    cell bodies become solid tinted shapes and membranes, organelles, and
+    microbes are drawn as glyphs on top, instead of texture characters
+    standing in for the interior.
+    """
+
+    def __init__(self, columns: int, rows: int, fill: bool = False):
         self.width, self.height = columns, rows
+        self.fill = fill
         self.pixels = [[EMPTY for _ in range(columns)] for _ in range(rows)]
 
-    def put(self, x: int, y: int, char: str, ink: Ink, bold: bool = False) -> None:
+    def put(self, x: int, y: int, char: str, ink: Ink, bold: bool = False, bg=KEEP) -> None:
         if 0 <= x < self.width and 0 <= y < self.height:
-            self.pixels[y][x] = Pixel(char, ink, bold)
+            if bg is KEEP:
+                # Glyphs drawn over a filled body stay inside it.
+                bg = self.pixels[y][x].bg
+            self.pixels[y][x] = Pixel(char, ink, bold, bg if self.fill else None)
 
     def point(self, x: float, y: float, char: str, ink: Ink, bold: bool = False) -> None:
         self.put(round(x), round(y / ASPECT), char, ink, bold)
 
-    def text(self, x: int, y: int, text: str, ink: Ink = Ink.TEXT, bold: bool = False) -> None:
+    def text(
+        self, x: int, y: int, text: str, ink: Ink = Ink.TEXT, bold: bool = False, bg=None
+    ) -> None:
+        # Captions default to the plain background so they read over any body.
         for offset, char in enumerate(text):
-            self.put(x + offset, y, char, ink, bold)
+            self.put(x + offset, y, char, ink, bold, bg)
 
     def line(
-        self, x1: float, y1: float, x2: float, y2: float, ink: Ink, unicode: bool = False
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        ink: Ink,
+        unicode: bool = False,
+        bg=KEEP,
     ) -> None:
         dx, dy = x2 - x1, y2 - y1
         if abs(dy) < abs(dx) * 0.45:
@@ -210,7 +259,7 @@ class Frame:
         else:
             char = "\\" if dx * dy > 0 else "/"
         for col, row in line_pixels(x1, y1, x2, y2):
-            self.put(col, row, char, ink)
+            self.put(col, row, char, ink, bg=bg)
 
     def plain(self) -> str:
         return "\n".join("".join(p.char for p in row) for row in self.pixels)
@@ -287,13 +336,16 @@ def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: b
             distance = math.hypot(dx, dy)
             if distance <= body_radius:
                 body.add((col, row))
-            if distance < radius - 0.65:
+            # A tinted body also covers the band just inside the membrane, which
+            # would otherwise show as notches of plain slide along the outline.
+            if distance < radius - 0.65 or (frame.fill and distance <= radius):
                 # Occlude the background, with sparse, stable cytoplasmic granules.
                 speckle = (
                     (col - round(cell.x)) * 31 + (row - round(cell.y / ASPECT)) * 17 + cell.id * 7
                 ) % 43
                 char = "·" if unicode else "."
-                frame.put(col, row, char if speckle == 0 else " ", Ink.CYTOPLASM)
+                tint = Ink.FILL_NEUTROPHIL if cell.kind == "neutrophil" else Ink.FILL_CYTOPLASM
+                frame.put(col, row, char if speckle == 0 else " ", Ink.CYTOPLASM, bg=tint)
     mouth = 0.0
     if cell.state is State.ENCLOSE:
         mouth = 0.34 * smooth(cell.elapsed / 1.5) * (1 - smooth((cell.elapsed - SEAL_TIME) / 1.5))
@@ -311,6 +363,8 @@ def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: b
             row,
             membrane_char(angle, unicode),
             Ink.NEUTROPHIL if cell.kind == "neutrophil" else Ink.MEMBRANE,
+            # The outline sits on the plain slide so the tinted body has a crisp edge.
+            bg=None,
         )
     if cell.state is State.ENCLOSE:
         draw_capture(frame, cell, unicode, now)
@@ -353,6 +407,7 @@ def draw_ring(
     ink: Ink,
     unicode: bool,
     fraction: float = 1.0,
+    bg=KEEP,
 ) -> None:
     # Mask rasterized glyphs, rather than samples: many samples can land on a
     # single glyph, which otherwise kept a dissolving envelope visibly intact.
@@ -364,7 +419,7 @@ def draw_ring(
     for col, row, angle in contour_pixels(points):
         order = ((col - round(x)) * 7 + (row - round(y / ASPECT)) * 11) % 17 / 17
         if order < fraction:
-            frame.put(col, row, membrane_char(angle, unicode), ink)
+            frame.put(col, row, membrane_char(angle, unicode), ink, bg=bg)
 
 
 def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None:
@@ -441,9 +496,12 @@ def draw_nuclear_body(
     for col, row in mask:
         if any((col + dx, row + dy) not in mask for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]):
             char = membrane_char(math.atan2(row * ASPECT, col), unicode)
+        elif frame.fill:
+            # The tint carries the nucleoplasm; texture glyphs would only add noise.
+            char = " "
         else:
             char = "░" if unicode else ":"
-        frame.put(cx + col, cy + row, char, Ink.NUCLEUS)
+        frame.put(cx + col, cy + row, char, Ink.NUCLEUS, bg=Ink.FILL_NUCLEUS)
     for col, row in [(-1, -1), (1, 1)]:
         if (col, row) in mask:
             frame.put(cx + col, cy + row, "~", Ink.NUCLEUS)
@@ -565,14 +623,15 @@ def draw_capture(frame: Frame, cell: Cell, unicode: bool, now: float = 0) -> Non
                 t = index / 16 * smooth(elapsed / 1.2)
                 x = (1 - t) ** 2 * base[0] + 2 * (1 - t) * t * control[0] + t * t * near[0]
                 y = (1 - t) ** 2 * base[1] + 2 * (1 - t) * t * control[1] + t * t * near[1]
-                frame.line(*previous, x, y, ink, unicode)
+                # Wrapping pseudopods are the cell's outer membrane: keep them untinted.
+                frame.line(*previous, x, y, ink, unicode, bg=None)
                 previous = x, y
             if elapsed >= 1.2:
                 previous = near
                 for index in range(1, 49):
                     theta = start + sign * (0.15 + (math.pi - 0.15) * wrapping * index / 48)
                     x, y = rim(theta)
-                    frame.line(*previous, x, y, ink, unicode)
+                    frame.line(*previous, x, y, ink, unicode, bg=None)
                     previous = x, y
             elif elapsed < 1.0:
                 frame.point(*near, "+", Ink.CAPTURE, True)
@@ -588,7 +647,7 @@ def draw_capture(frame: Frame, cell: Cell, unicode: bool, now: float = 0) -> Non
                 angle = cell.reach_angle + sign * 0.30 * (1 - transport)
                 radius = cell.body_outline(angle, now)
                 base = cell.x + math.cos(angle) * radius, cell.y + math.sin(angle) * radius
-                frame.line(*base, *rim(start + sign * 0.25), Ink.MEMBRANE, unicode)
+                frame.line(*base, *rim(start + sign * 0.25), Ink.MEMBRANE, unicode, bg=None)
 
 
 def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
@@ -616,8 +675,8 @@ def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
         )
 
 
-def render(world: World, unicode: bool = False) -> Frame:
-    frame = Frame(round(world.width), round(world.height / ASPECT))
+def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
+    frame = Frame(round(world.width), round(world.height / ASPECT), fill)
     compact_view = frame.width < 110 or frame.height < 36
     draw_nutrients(frame, world, unicode)
     draw_hyphae(frame, world, unicode)
@@ -637,9 +696,15 @@ def render(world: World, unicode: bool = False) -> Frame:
             for col in range(math.floor(red.x - rx), math.ceil(red.x + rx) + 1):
                 distance = ((col - red.x) / rx) ** 2 + ((row * ASPECT - red.y) / ry) ** 2
                 if distance < 0.85:
-                    char = ("░" if unicode else ".") if distance < 0.23 else " "
-                    frame.put(col, row, char, Ink.RED_DIM)
-        draw_ring(frame, red.x, red.y, rx, ry, Ink.RED, unicode)
+                    pale = distance < 0.23
+                    if frame.fill:
+                        # The biconcave center reads as a paler tint, not a texture.
+                        tint = Ink.FILL_RED_PALE if pale else Ink.FILL_RED
+                        frame.put(col, row, " ", Ink.RED_DIM, bg=tint)
+                    else:
+                        char = ("░" if unicode else ".") if pale else " "
+                        frame.put(col, row, char, Ink.RED_DIM)
+        draw_ring(frame, red.x, red.y, rx, ry, Ink.RED, unicode, bg=None)
     for phage in world.phages.values():
         draw_phage(frame, phage, unicode)
     for capsid in world.spent_capsids:
@@ -654,13 +719,13 @@ def render(world: World, unicode: bool = False) -> Frame:
     for cell in sorted(world.cells, key=lambda c: c.radius):
         event = world.events.active
         if event is not None and event.kind == "net" and event.source == cell.id and event.age >= 2:
-            source = Frame(frame.width, frame.height)
+            source = Frame(frame.width, frame.height, frame.fill)
             draw_cell(source, cell, world.time, unicode, nucleus=False)
             fraction = 1 - smooth((event.age - 6) / 4)
             for row, pixels in enumerate(source.pixels):
                 for col, pixel in enumerate(pixels):
                     if pixel != EMPTY and (col * 17 + row * 31) % 101 / 101 < fraction:
-                        frame.put(col, row, pixel.char, pixel.ink, pixel.bold)
+                        frame.put(col, row, pixel.char, pixel.ink, pixel.bold, pixel.bg)
         else:
             draw_cell(frame, cell, world.time, unicode)
     for bacterium in world.bacteria.values():
@@ -705,7 +770,12 @@ def draw_phage(
     bold = not empty and contraction < 0.5
     if abs(ux) > abs(uy):
         frame.text(
-            round(phage.x - 0.5), round(phage.y / ASPECT), "-<" if ux > 0 else ">-", ink, bold
+            round(phage.x - 0.5),
+            round(phage.y / ASPECT),
+            "-<" if ux > 0 else ">-",
+            ink,
+            bold,
+            bg=KEEP,
         )
     else:
         char = ("ᛦ" if uy > 0 else "ᛘ") if unicode else "Y"
@@ -979,7 +1049,7 @@ def overlay(frame: Frame, lines: list[str], inks: list[Ink] | None = None) -> No
     left, top = (frame.width - width) // 2, (frame.height - height) // 2
     for row in range(top, top + height):
         for col in range(left, left + width):
-            frame.put(col, row, " ", Ink.TEXT)
+            frame.put(col, row, " ", Ink.TEXT, bg=None)
     for index, line in enumerate(lines[: height - 2]):
         frame.text(
             left + 2,

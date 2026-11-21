@@ -5,7 +5,7 @@ divide, and bacteriophages occasionally cause trouble.
 
 ![Animated terminal microscope slide with immune cells, microbes, and red blood cells](docs/demo.gif)
 
-Inspired by [cbonsai](https://github.com/jallbrit/cbonsai) and
+Inspired by [cbonsai](https://gitlab.com/jallbrit/cbonsai) and
 [asciiquarium](https://github.com/cmatsuoka/asciiquarium). This is a biological
 illustration with exaggerated sizes and timing.
 

@@ -12,6 +12,7 @@ from cells import (
     NEUTROPHIL_RADIUS,
     BACTERIUM_PADDING,
     DIVISION_STAGES,
+    EMPTY,
     MICROBE_KINDS,
     Bacterium,
     Cell,
@@ -209,6 +210,53 @@ def diversity_preview(directory):
     atlas(directory / "diversity.svg", "Slide inhabitants / silhouettes and anatomy", panels)
 
 
+def half_block_preview(directory):
+    """The hero slide at twice the vertical sampling, merged into half block glyphs.
+
+    A terminal cell is twice as tall as it is wide, so line art throws away half
+    of the vertical detail the world holds. Rendering the same frame with the
+    aspect cut in half doubles the rows, and pairs of rows merge into one half
+    block cell: both rows filled is a full block, one row is the upper or lower
+    half. A monochrome sketch of the idea, next to the line art at the same size.
+    """
+    import importlib
+
+    render_module = importlib.import_module("terminal_cells.render")
+    world = World(120, 36, seed=42)
+    for _ in range(180):
+        world.update()
+    aspect = render_module.ASPECT
+    render_module.ASPECT = aspect / 2
+    try:
+        tall = render(world, unicode=True)
+    finally:
+        render_module.ASPECT = aspect
+    merged = Frame(tall.width, (tall.height + 1) // 2)
+    for row in range(merged.height):
+        top = tall.pixels[2 * row]
+        bottom = tall.pixels[2 * row + 1] if 2 * row + 1 < tall.height else [EMPTY] * tall.width
+        for col in range(tall.width):
+            above = top[col].ink if top[col].char != " " else None
+            below = bottom[col].ink if bottom[col].char != " " else None
+            if above is None and below is None:
+                continue
+            if below is None:
+                merged.put(col, row, "▀", above)
+            elif above is None or above == below:
+                merged.put(col, row, "█" if above is not None else "▄", below)
+            else:
+                merged.put(col, row, "▄", below)
+    panels = [
+        ("Line art (Unicode)", render(world, unicode=True)),
+        ("Half block (2x vertical sampling)", merged),
+    ]
+    atlas(
+        directory / "halfblock.svg",
+        "Half block prototype / the same slide, line art and half blocks",
+        panels,
+    )
+
+
 def ecology_preview(directory):
     def empty():
         world = World(48, 24, 5)
@@ -296,6 +344,7 @@ def main():
     lifecycle_previews(output.parent)
     viral_previews(output.parent)
     diversity_preview(output.parent)
+    half_block_preview(output.parent)
     ecology_preview(output.parent)
 
 

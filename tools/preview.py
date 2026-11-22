@@ -209,6 +209,62 @@ def diversity_preview(directory):
     atlas(directory / "diversity.svg", "Slide inhabitants / silhouettes and anatomy", panels)
 
 
+def fallback_preview(directory):
+    """Each slide inhabitant drawn twice with the same state: ASCII first, Unicode second."""
+    labels = {
+        "rod": "Short rod / waving flagellum",
+        "coccus": "Single coccus",
+        "spiral": "Short spiral",
+        "bacillus": "Chain-forming bacilli",
+        "spirochete": "Spirochete / whole-body corkscrew",
+        "vibrio": "Vibrio / curved rod",
+        "colony": "Coccal colony",
+        "yeast": "Yeast / daughter bud",
+        "trypanosome": "Trypanosome / undulating membrane",
+    }
+    panels = []
+    for kind in MICROBE_KINDS:
+        for mode, label in ((False, "ASCII"), (True, "Unicode")):
+            frame = Frame(48, 24)
+            microbe = Bacterium(
+                0, 24, 24, 0.15, 0, kind, 9999, 9999, bud=0.8 if kind == "yeast" else 0
+            )
+            draw_bacterium(frame, microbe, mode, 0.5)
+            panels.append((f"{labels[kind]} ({label})", frame))
+    for kind in ("macrophage", "neutrophil"):
+        radius = NEUTROPHIL_RADIUS if kind == "neutrophil" else CELL_RADIUS
+        for mode, label in ((False, "ASCII"), (True, "Unicode")):
+            frame = Frame(48, 24)
+            draw_cell(frame, Cell(0, 24, 24, radius, 0.2, 0.3, kind=kind), 0.5, mode)
+            panels.append((f"{kind.capitalize()} ({label})", frame))
+    world = World(48, 24, 1)
+    world.cells.clear()
+    world.red_cells.clear()
+    world.hyphae = [
+        Hypha(
+            [
+                (5, 33),
+                (12, 29),
+                (18, 24),
+                (24, 21),
+                (30, 17),
+                (23, 29),
+                (29, 33),
+                (36, 35),
+                (35, 14),
+            ],
+            [(0, 1), (1, 2), (2, 3), (3, 4), (2, 5), (5, 6), (6, 7), (4, 8)],
+            [(7, 0.2), (8, -0.4)],
+            9999,
+        )
+    ]
+    for mode, label in ((False, "ASCII"), (True, "Unicode")):
+        frame = Frame(48, 24)
+        draw_hyphae(frame, world, mode)
+        panels.append((f"Fungal hypha ({label})", frame))
+    atlas(directory / "fallback.svg", "Slide inhabitants / ASCII fallback beside Unicode", panels)
+
+
 def ecology_preview(directory):
     def empty():
         world = World(48, 24, 5)
@@ -296,6 +352,7 @@ def main():
     lifecycle_previews(output.parent)
     viral_previews(output.parent)
     diversity_preview(output.parent)
+    fallback_preview(output.parent)
     ecology_preview(output.parent)
 
 

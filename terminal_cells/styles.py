@@ -8,11 +8,11 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Mapping, Protocol
 
-from .frame import Frame, PALETTES
+from .frame import Frame, Ink, PALETTES
 from .capabilities import RenderCapabilities
 from .render import render
 from .world import World
-from . import microscopy
+from . import stained, raster
 
 
 @dataclass(frozen=True)
@@ -48,6 +48,7 @@ class PresentationStyle(Protocol):
     """
 
     name: str
+    legend: tuple | None
     default_fill: bool
 
     def palette(self, theme: str): ...
@@ -69,6 +70,7 @@ class CacheInfo:
 class ClassicStyle:
     """The original glyph presentation, including optional body tints."""
 
+    legend: tuple | None = None
     name: str = "classic"
     default_fill: bool = False
 
@@ -83,26 +85,54 @@ class ClassicStyle:
 
 
 @dataclass(frozen=True)
-class MicroscopyStyle:
+class StainedStyle:
     """Experimental stained bodies and quarter-cell contours."""
 
-    name: str = "microscopy"
+    legend: tuple | None = None
+    name: str = "stained"
     default_fill: bool = True
 
     def palette(self, theme: str):
-        return microscopy.palette(theme)
+        return stained.palette(theme)
 
     def cache_info(self) -> Mapping[str, CacheInfo]:
         return {}
 
     def render(self, world: World, options: RenderOptions) -> Frame:
-        return microscopy.render(world, options)
+        return stained.render(world, options)
+
+
+@dataclass(frozen=True)
+class RasterStyle:
+    """Shaded, whole-specimen raster with a bounded pigment palette."""
+
+    legend: tuple | None = (
+        ("Raster: shaded specimen on a pale slide", Ink.TEXT),
+        ("Immune cells: pale gray, purple nuclei", Ink.TEXT),
+        ("Red blood cells: pink annulus, pale center", Ink.TEXT),
+        ("Microbes and fungal filaments: green; shapes identify kinds", Ink.TEXT),
+        ("Phages: small purple heads and gray tails", Ink.TEXT),
+        ("Rare visitors and tools share the simulation", Ink.MUTED),
+    )
+    name: str = "raster"
+    default_fill: bool = True
+
+    def palette(self, theme: str):
+        return PALETTES[theme]
+
+    def cache_info(self) -> Mapping[str, CacheInfo]:
+        info = raster.tile.cache_info()
+        return {"tiles": CacheInfo(info.currsize, info.maxsize)}
+
+    def render(self, world: World, options: RenderOptions) -> Frame:
+        return raster.render(world, options)
 
 
 STYLES: Mapping[str, PresentationStyle] = MappingProxyType(
     {
         "classic": ClassicStyle(),
-        "microscopy": MicroscopyStyle(),
+        "stained": StainedStyle(),
+        "raster": RasterStyle(),
     }
 )
 DEFAULT_STYLE = "classic"

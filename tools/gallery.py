@@ -37,14 +37,22 @@ def svg(panels, theme, palettes=None):
         for y, row in enumerate(frame.pixels):
             for x, pixel in enumerate(row):
                 px, py = 16 + x * 9, offset + y * 18
-                if pixel.bg is not None:
+                if pixel.bg is not None or pixel.background is not None:
+                    background_color = (
+                        xterm_hex(pixel.background)
+                        if pixel.background is not None
+                        else colors[pixel.bg]
+                    )
                     lines.append(
-                        f'<rect x="{px}" y="{py - 14}" width="9" height="18" fill="{colors[pixel.bg]}"/>'
+                        f'<rect x="{px}" y="{py - 14}" width="9" height="18" fill="{background_color}"/>'
                     )
                 if pixel.char != " ":
                     bold = ' font-weight="bold"' if pixel.bold else ""
+                    foreground_color = (
+                        xterm_hex(pixel.color) if pixel.color is not None else colors[pixel.ink]
+                    )
                     lines.append(
-                        f'<text x="{px}" y="{py}" fill="{colors[pixel.ink]}"{bold}>{escape(pixel.char)}</text>'
+                        f'<text x="{px}" y="{py}" fill="{foreground_color}"{bold}>{escape(pixel.char)}</text>'
                     )
         offset += frame.height * 18 + 12
     return "\n".join(lines + ["</g></svg>", ""])

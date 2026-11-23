@@ -10,6 +10,8 @@ from types import MappingProxyType
 
 from .models import (
     CELL_RADIUS,
+    NEUTROPHIL_RADIUS,
+    Drifter,
     BACTERIUM_PADDING,
     STEP,
     Cell,
@@ -28,6 +30,9 @@ class SceneSpec:
 
 SCENES = MappingProxyType(
     {
+        "blood-smear": SceneSpec(
+            "Reference-like blood smear with a neutrophil and red cells", (0, 12)
+        ),
         "division": SceneSpec(
             "Nuclear organization through daughter separation", (0, 9, 22, 30, 37, 46, 51)
         ),
@@ -57,11 +62,41 @@ def make_scene(name: str, *, seed: int = 42, at: float = 0) -> World:
         100,
         40,
         seed,
-        density=3 if name == "crowding" else 1,
+        density=3 if name in ("crowding", "blood-smear") else 1,
+        scene="blood" if name == "blood-smear" else "mixed",
         rare_events=False,
         microscope_events=False,
     )
-    if name != "crowding":
+    if name == "blood-smear":
+        world.cells = [
+            Cell(0, 50, 40, NEUTROPHIL_RADIUS, 0, 0, kind="neutrophil", divide_at=math.inf)
+        ]
+        world.bacteria.clear()
+        world.hyphae.clear()
+        world.phages.clear()
+        world.nutrients.clear()
+        points = (
+            (12, 10),
+            (36, 7),
+            (65, 10),
+            (89, 8),
+            (3, 35),
+            (22, 27),
+            (78, 30),
+            (96, 42),
+            (12, 61),
+            (31, 70),
+            (65, 71),
+            (85, 62),
+            (47, -1),
+            (98, 73),
+        )
+        world.red_cells = [
+            Drifter(x, y, i * 0.6, 5 + (i % 3) * 0.3) for i, (x, y) in enumerate(points)
+        ]
+        world.replenish_at = world.phage_replenish_at = math.inf
+        world.nutrient_at = world.fungal_arrival_at = world.large_arrival_at = math.inf
+    if name not in ("crowding", "blood-smear"):
         for pool in (
             world.cells,
             world.bacteria,

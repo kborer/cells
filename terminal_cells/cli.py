@@ -69,7 +69,7 @@ class TerminalRenderer:
         # (glyph ink, tint) combination; otherwise bodies stay glyph-only.
         self.fill = False
         self._palette: list[int] = []
-        self._pairs: dict[tuple[Ink, Ink], int] = {}
+        self._pairs: dict[tuple[Ink, Ink] | tuple[int, int], int] = {}
         self._colors(theme)
         if fill and self._palette and theme != "mono":
             # Reserve a pair for every (glyph ink, tint) combination up front, so
@@ -130,6 +130,22 @@ class TerminalRenderer:
             self._pairs[key] = self.curses.color_pair(number)
         return self._pairs[key]
 
+    def _indexed_attribute(self, pixel) -> int:
+        if not self.fill:
+            return self.attributes[pixel.ink]
+        key = pixel.color, pixel.background
+        if key not in self._pairs:
+            number = len(Ink) + 1 + len(self._pairs)
+            try:
+                if number >= min(256, self.curses.COLOR_PAIRS):
+                    raise self.curses.error()
+                self.curses.init_pair(number, pixel.color, pixel.background)
+            except self.curses.error:
+                self.fill = False
+                return self.attributes[pixel.ink]
+            self._pairs[key] = self.curses.color_pair(number)
+        return self._pairs[key]
+
     def draw(self, frame: Frame) -> None:
         curses = self.curses
         previous = self.previous
@@ -146,18 +162,26 @@ class TerminalRenderer:
                 # Group adjacent changed characters with the same attributes.
                 start = x
                 chars = []
-                style = pixel.ink, pixel.bold, pixel.bg
+                style = pixel.ink, pixel.bold, pixel.bg, pixel.color, pixel.background
                 while x < frame.width:
                     current = row[x]
-                    if (current.ink, current.bold, current.bg) != style:
+                    if (
+                        current.ink,
+                        current.bold,
+                        current.bg,
+                        current.color,
+                        current.background,
+                    ) != style:
                         break
                     if previous and previous.pixels[y][x] == current:
                         break
                     chars.append(current.char)
                     x += 1
-                attributes = self._attribute(pixel.ink, pixel.bg) | (
-                    curses.A_BOLD if pixel.bold else 0
-                )
+                attributes = (
+                    self._indexed_attribute(pixel)
+                    if pixel.color is not None
+                    else self._attribute(pixel.ink, pixel.bg)
+                ) | (curses.A_BOLD if pixel.bold else 0)
                 try:
                     self.screen.addstr(y, start, "".join(chars), attributes)
                 except curses.error:
@@ -209,7 +233,8 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
     unicode = use_unicode(args.unicode, screen.encoding)
     paused, help_visible, stats = False, False, args.stats
     help_offset = 0
-    help_content = help_lines(args.interactive)
+    help_content = help_lines(args.interactive, legend=style.legend)
+    help_inks = HELP_INKS | (dict(style.legend) if style.legend is not None else {})
     notice, notice_until = "", 0.0
     counters = (world.engulfed, world.divisions, world.infections, world.lysed, world.arrivals)
     speed = args.speed
@@ -319,7 +344,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
             lines = [help_content[0], "j/k or arrows scroll; ? closes", ""] + help_content[
                 2 + help_offset :
             ]
-            overlay(frame, lines, [HELP_INKS.get(line, Ink.TEXT) for line in lines])
+            overlay(frame, lines, [help_inks.get(line, Ink.TEXT) for line in lines])
         else:
             if stats:
                 frame.text(
@@ -468,7 +493,7 @@ def parser() -> argparse.ArgumentParser:
         "--style",
         choices=tuple(STYLES),
         default=DEFAULT_STYLE,
-        help="presentation style; microscopy is experimental",
+        help="presentation style; stained and raster are experimental",
     )
     display.add_argument(
         "--theme",
@@ -569,7 +594,7 @@ def diagnostics(args) -> dict:
         "microscope_events": not args.no_events and not args.calm,
         "interactive_requested": args.interactive,
         "color_requested": use_color(args.color),
-        "fill_requested": args.fill,
+        "fill_requested": args.fill or get_style(args.style).default_fill,
         "style": args.style,
         "unicode_requested": use_unicode(args.unicode, sys.stdout.encoding),
         "note": "Capabilities are requested settings; actual colors depend on terminal support.",

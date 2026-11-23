@@ -9,7 +9,7 @@ where practical, and update their contributor examples and contract tests.
 | --- | --- | --- |
 | Simulation frontend | `World(...)`, `update(dt=STEP, events=True)`, `resize(columns, rows)`, `advance_events(seconds)` | Frontend owns clock, input, and terminal lifecycle |
 | Presentation | `PresentationStyle`, `RenderOptions.resolve()`, `get_style()`, `STYLES` in `styles.py` | A trusted built-in style reads the world and returns a fresh `Frame` |
-| Terminal drawing | `Frame`, `Pixel`, `Ink`, palettes in `frame.py` | Styles draw; `TerminalRenderer` handles output and color-pair fallback |
+| Terminal drawing | `Frame`, `Frame.indexed()`, `Pixel`, `Ink`, palettes in `frame.py` | Styles draw; `TerminalRenderer` handles output and color-pair fallback |
 | Capabilities | `RenderCapabilities` in `capabilities.py` | Backend reports actual output support; style honors negotiated options |
 | Membrane geometry | `Cell.outline(angle, now)`, `Cell.extent()`, `microbe_axes()`, `disc_axes()`, `cell_contains()` | Geometry stays consistent with collision boundaries |
 | Collision queries | `World.obstacles()` and `World.is_blocked()` | Read-only queries in specimen coordinates; padding expands obstacles |
@@ -39,10 +39,14 @@ implementation details; older `_obstacles` callers still work through a wrapper.
 The compatibility exports in `terminal_cells` and `terminal_cells.render` remain
 available, but new contributions should import the owning module shown here.
 
-Styles expose `default_fill` and `palette(theme)` so the terminal and comparison
+Styles expose `default_fill`, optional `legend`, and `palette(theme)` so the terminal and comparison
 gallery use the same negotiated effects and semantic-color definitions. Each
 palette has one (256-color, basic-color) pair per `Ink`, in enum order. Themes
-remain `slide`, `amber`, `light`, and `mono` for either style.
+remain `slide`, `amber`, `light`, and `mono`. Indexed raster pixels carry their
+own 0..255 color values; semantic UI overlays still use the palette. Their
+foreground/background combinations must fit the backend pair budget; the raster
+style uses 14 pigments (196 pairs). The renderer does not evict or reuse active
+pairs, since curses also applies pair redefinitions to unchanged screen cells.
 
 Styles report every drawing cache through `cache_info()`, using
 `CacheInfo(size, limit)`. Limits must be positive finite integers; styles without
@@ -52,7 +56,7 @@ isolation from malicious Python code. Styles are explicitly registered trusted
 code; the command line does not load arbitrary modules or plugins.
 
 See [presentation styles](PRESENTATION_STYLES.md) for capability negotiation,
-comparison commands, and the microscopy experiment references, and
+comparison commands, and the stained and raster experiment references, and
 [adding organisms](ADDING_ORGANISMS.md) for the catalog workflow. Fixtures are
 repeatable within the current version; their layouts and sample times may evolve.
 Neither serialized worlds nor saved cross-version replays are a supported format.

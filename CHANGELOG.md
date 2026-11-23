@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-- Add opt-in `--style microscopy`: stained bodies, pale red-cell centers,
+- Name the filled-glyph presentation `stained` and add a separate experimental
+  `raster` style that shades the whole specimen, with pink red cells, pale immune
+  cells, purple nuclei, and green microbes/filaments on a light slide.
+- Add bounded indexed-color frame output, raster-aware legends and galleries,
+  and a repeatable blood-smear scene. Classic remains the default.
+
+- Add opt-in `--style stained`: stained bodies, pale red-cell centers,
   anchored granules, and block contours, preserving lifecycle/effect glyphs.
   Classic remains the default and supplies limited-terminal fallbacks.
 

@@ -30,6 +30,25 @@ from cells import (
 
 
 def xterm_hex(index):
+    if index < 16:
+        return (
+            "#000000",
+            "#800000",
+            "#008000",
+            "#808000",
+            "#000080",
+            "#800080",
+            "#008080",
+            "#c0c0c0",
+            "#808080",
+            "#ff0000",
+            "#00ff00",
+            "#ffff00",
+            "#0000ff",
+            "#ff00ff",
+            "#00ffff",
+            "#ffffff",
+        )[index]
     if index >= 232:
         gray = 8 + (index - 232) * 10
         return f"#{gray:02x}{gray:02x}{gray:02x}"

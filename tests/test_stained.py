@@ -7,7 +7,7 @@ import unittest
 from terminal_cells.capabilities import RenderCapabilities
 from terminal_cells.cli import TerminalRenderer, main
 from terminal_cells.frame import FILL_INKS, Ink, PALETTES
-from terminal_cells.microscopy import BLOCKS, tile
+from terminal_cells.stained import BLOCKS, tile
 from terminal_cells.models import Drifter
 from terminal_cells.render import render
 from terminal_cells.scenes import make_scene, SCENES
@@ -19,11 +19,11 @@ CAPS = RenderCapabilities(unicode=True, colors=256, backgrounds=True, blocks=Tru
 OPTIONS = RenderOptions.resolve(CAPS, fill=True)
 
 
-class MicroscopyTests(unittest.TestCase):
+class StainedTests(unittest.TestCase):
     def test_opt_in_style_uses_blocks_and_does_not_change_classic_default(self):
         self.assertEqual(get_style().name, "classic")
         self.assertFalse(get_style().default_fill)
-        style = get_style("microscopy")
+        style = get_style("stained")
         self.assertTrue(style.default_fill)
         world = make_scene("ingestion", at=9)
         frame = style.render(world, OPTIONS)
@@ -43,11 +43,11 @@ class MicroscopyTests(unittest.TestCase):
             options = RenderOptions.resolve(caps, fill=True)
             with self.subTest(caps=caps):
                 self.assertEqual(
-                    get_style("microscopy").render(world, options).pixels,
+                    get_style("stained").render(world, options).pixels,
                     render(world, options.unicode, options.fill).pixels,
                 )
         outputs = []
-        for style in ("classic", "microscopy"):
+        for style in ("classic", "stained"):
             output = io.StringIO()
             with redirect_stdout(output):
                 self.assertEqual(
@@ -84,7 +84,7 @@ class MicroscopyTests(unittest.TestCase):
             for at in SCENES[scene].times:
                 world = make_scene(scene, at=at)
                 classic = render(world, True, True)
-                stained = get_style("microscopy").render(world, OPTIONS)
+                stained = get_style("stained").render(world, OPTIONS)
                 for y, row in enumerate(classic.pixels):
                     for x, pixel in enumerate(row):
                         if pixel.char != " " and pixel.ink in protected:
@@ -97,7 +97,7 @@ class MicroscopyTests(unittest.TestCase):
         world = make_scene("infection")
         world.bacteria.clear()
         world.red_cells = [Drifter(30, 40, 0, 6), Drifter(60, 40, 0, 6)]
-        frame = get_style("microscopy").render(world, OPTIONS)
+        frame = get_style("stained").render(world, OPTIONS)
         self.assertIs(frame.pixels[20][30].bg, Ink.FILL_RED_PALE)
         self.assertTrue(any(p.bg is Ink.FILL_RED for row in frame.pixels for p in row))
         self.assertTrue(
@@ -108,7 +108,7 @@ class MicroscopyTests(unittest.TestCase):
         )
 
     def test_stain_palette_is_applied_by_the_backend_without_changing_species_hues(self):
-        style = get_style("microscopy")
+        style = get_style("stained")
         for theme in PALETTES:
             palette = style.palette(theme)
             self.assertEqual(len(palette), len(Ink))

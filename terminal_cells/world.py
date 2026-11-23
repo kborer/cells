@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import random
 from .events import EventDirector
+from .geometry import obstacles
+from .catalog import MICROBES, PHAGE_HOST_KINDS
 from .lab import Laboratory
 from .models import (
     ASPECT,
@@ -39,7 +41,6 @@ from .models import (
     bacterial_padding,
     bacterial_scale,
     clamp,
-    disc_axes,
     microbe_axes,
     phage_contact_distance,
     smooth,
@@ -95,8 +96,10 @@ class World:
         # Draw a new community profile per slide; children retain their type.
         self.microbe_weights = [self.rng.gammavariate(0.8, 1) + 0.08 for _ in MICROBE_KINDS]
         if scene == "blood":
-            multipliers = (2, 3, 0.3, 0.5, 0.2, 0.3, 0.5, 1, 2)
-            self.microbe_weights = [w * m for w, m in zip(self.microbe_weights, multipliers)]
+            self.microbe_weights = [
+                weight * MICROBES[kind].blood_weight
+                for kind, weight in zip(MICROBE_KINDS, self.microbe_weights)
+            ]
         self.neutrophil_fraction = self.rng.uniform(0.15, 0.65)
         self.replenish_at = 6.0
         self._populate()
@@ -205,12 +208,7 @@ class World:
         child = self.bacteria[ident]
         if parent:
             child.angle = parent.angle
-        if kind == "yeast":
-            child.speed = 0
-        elif kind == "trypanosome":
-            child.speed *= 1.5
-        elif kind == "vibrio":
-            child.speed *= 1.8
+        child.speed *= MICROBES[kind].speed
         if arrival:
             self._begin_entry(child)
         else:
@@ -281,7 +279,7 @@ class World:
 
     def _entry_extent(self, obj) -> float:
         footprint = self._entry_padding(obj) + 2
-        if isinstance(obj, Bacterium) and obj.kind in ("rod", "spiral", "vibrio", "trypanosome"):
+        if isinstance(obj, Bacterium) and MICROBES[obj.kind].flagellum:
             footprint = max(footprint, microbe_axes(obj)[0] + 8)
         return footprint
 
@@ -548,41 +546,33 @@ class World:
         self.lab.resize(sx, sy)
         self._resolve_obstacles()
 
-    def _obstacles(
+    def obstacles(
         self,
         x: float,
         y: float,
-        padding: float,
+        padding: float = 0,
         exempt: int | None = None,
         red: bool = True,
         visitors: bool = True,
     ):
-        """Yield penetration normals for the same outlines used by the renderer."""
-        if visitors:
-            yield from self.events.obstacle(x, y, padding)
-        for cell in self.cells:
-            if cell.id == exempt:
-                continue
-            dx, dy = x - cell.x, y - cell.y
-            bound = cell.extent() + padding + 2
-            if abs(dx) > bound or abs(dy) > bound:
-                continue
-            angle = math.atan2(dy, dx)
-            boundary = cell.outline(angle, self.time) + padding
-            distance = math.hypot(dx, dy)
-            if distance < boundary:
-                yield math.cos(angle), math.sin(angle), boundary - distance
-        if red:
-            for disc in self.red_cells:
-                dx, dy = x - disc.x, y - disc.y
-                a, b = disc_axes(disc)
-                if abs(dx) > a + padding or abs(dy) > b + padding:
-                    continue
-                angle = math.atan2(dy, dx)
-                boundary = a * b / math.hypot(b * math.cos(angle), a * math.sin(angle)) + padding
-                distance = math.hypot(dx, dy)
-                if distance < boundary:
-                    yield math.cos(angle), math.sin(angle), boundary - distance
+        """Read-only public collision query; see geometry.obstacles."""
+        return obstacles(self, x, y, padding, exempt, red, visitors)
+
+    def is_blocked(
+        self,
+        x: float,
+        y: float,
+        padding: float = 0,
+        exempt: int | None = None,
+        red: bool = True,
+        visitors: bool = True,
+    ) -> bool:
+        """Whether a point (optionally padded) intersects a membrane or visitor."""
+        return next(self.obstacles(x, y, padding, exempt, red, visitors), None) is not None
+
+    def _obstacles(self, x, y, padding, exempt=None, red=True, visitors=True):
+        # Compatibility for older tools; new callers use obstacles/is_blocked.
+        return self.obstacles(x, y, padding, exempt, red, visitors)
 
     def _exclude(self, obj, padding: float, exempt: int | None = None, red: bool = True) -> None:
         """Keep extracellular bodies outside membranes, including moving ones.
@@ -685,7 +675,7 @@ class World:
             return
         # Start near a swimming path, without forcing contact or infection.
         microbes = sorted(
-            (b for b in self.bacteria.values() if b.kind in BACTERIAL_KINDS),
+            (b for b in self.bacteria.values() if b.kind in PHAGE_HOST_KINDS),
             reverse=True,
             key=lambda b: min((math.hypot(b.x - c.x, b.y - c.y) for c in self.cells), default=0),
         )
@@ -714,7 +704,7 @@ class World:
         self._add_phage(x, y)
 
     def _infect(self, bacterium: Bacterium, phage: Phage) -> None:
-        if bacterium.kind not in BACTERIAL_KINDS:
+        if bacterium.kind not in PHAGE_HOST_KINDS:
             return
         angle = math.atan2(phage.y - bacterium.y, phage.x - bacterium.x) - bacterium.angle
         bacterium.infection = Infection(angle=angle)
@@ -785,7 +775,7 @@ class World:
             candidates = [
                 b
                 for b in self.bacteria.values()
-                if b.kind in BACTERIAL_KINDS
+                if b.kind in PHAGE_HOST_KINDS
                 and b.entry is None
                 and b.owner is None
                 and b.infection is None
@@ -803,7 +793,7 @@ class World:
                     continue
                 dx, dy = bacterium.x - phage.x, bacterium.y - phage.y
                 distance = math.hypot(dx, dy)
-                if bacterium.kind not in BACTERIAL_KINDS:
+                if bacterium.kind not in PHAGE_HOST_KINDS:
                     continue  # Bacteriophages do not infect yeast or protozoa.
                 contact = phage_contact_distance(bacterium, math.atan2(-dy, -dx))
                 if distance > contact + 1.2:
@@ -1109,23 +1099,22 @@ class World:
             or len(self.bacteria) >= limit
         ):
             return
-        if microbe.kind in ("yeast", "trypanosome"):
-            microbe.bud = min(1, microbe.bud + dt / (12 if microbe.kind == "yeast" else 10))
+        spec = MICROBES[microbe.kind]
+        if spec.reproduction == "budding":
+            microbe.bud = min(1, microbe.bud + dt / spec.bud_seconds)
             if microbe.bud < 1:
                 return
-        elif microbe.kind in ("bacillus", "colony") and microbe.units < 5:
+        elif spec.reproduction == "segmented" and microbe.units < 5:
             microbe.units += 1
             microbe.divide_at = self.time + self.rng.uniform(10, 18)
             return
         self._add_bacterium(microbe)
         child = self.bacteria[self.next_id - 1]
-        if microbe.kind in ("bacillus", "colony"):
+        if spec.reproduction == "segmented":
             child.units = microbe.units // 2
             microbe.units -= child.units
-        angle = (
-            microbe.angle if microbe.kind in ("yeast", "bacillus") else microbe.angle + math.pi / 2
-        )
-        axis = 0 if microbe.kind in ("yeast", "bacillus") else 1
+        axis = spec.split_axis
+        angle = microbe.angle + axis * math.pi / 2
         microbe.bud = 0
         separation = microbe_axes(microbe)[axis] + microbe_axes(child)[axis] + 0.5
         child.x = (microbe.x + math.cos(angle) * separation) % self.width
@@ -1134,7 +1123,7 @@ class World:
         microbe.divide_at = self.time + self.rng.uniform(25, 65)
 
     def _rail_heading(self, microbe: Bacterium) -> float | None:
-        if microbe.kind not in ("rod", "bacillus", "vibrio"):
+        if not MICROBES[microbe.kind].fungal_rails:
             return None
         if microbe.rail is not None and (
             microbe.rail >= len(self.hyphae) or self.time >= microbe.rail_until
@@ -1199,7 +1188,7 @@ class World:
             microbe.rail = None
             return 1
         desired, turn_rate, multiplier = None, 2.2, 1.0
-        evasive = microbe.kind in ("rod", "spiral", "spirochete", "vibrio") and microbe.id % 3 != 0
+        evasive = MICROBES[microbe.kind].evasive and microbe.id % 3 != 0
         threat = None
         if evasive:
             for cell in self.cells:

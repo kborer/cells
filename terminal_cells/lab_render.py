@@ -12,14 +12,14 @@ def draw_lab(frame, world, unicode):
         for index in range(8):
             angle = index * TAU / 8 + pulse.age * 2
             x, y = pulse.x + math.cos(angle) * radius, pulse.y + math.sin(angle) * radius
-            if next(world._obstacles(x, y, 0.2), None) is None:
+            if next(world.obstacles(x, y, 0.2), None) is None:
                 frame.point(x, y, "." if pulse.age > 2 else "~", Ink.MUTED)
     for pulse in world.lab.pings:
         for index in range(12):
             angle = index * TAU / 12
             radius = 1 + pulse.age * 3
             x, y = pulse.x + math.cos(angle) * radius, pulse.y + math.sin(angle) * radius
-            if next(world._obstacles(x, y, 0.2), None) is None:
+            if next(world.obstacles(x, y, 0.2), None) is None:
                 frame.point(x, y, "o" if pulse.age < 0.3 else ".", Ink.NUTRIENT)
     for effect in world.lab.ruptures:
         target, obj = effect.target, effect.target.obj

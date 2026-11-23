@@ -10,6 +10,7 @@ from unittest.mock import patch
 from terminal_cells import World, render
 from terminal_cells.cli import diagnostics, main, parser
 from terminal_cells.frame import Frame, Ink
+from terminal_cells.capabilities import RenderCapabilities
 from terminal_cells.styles import DEFAULT_STYLE, RenderOptions, get_style
 
 
@@ -67,7 +68,7 @@ class StyleTests(unittest.TestCase):
         ):
             main(["--snapshot", "--style", "example", "--at", "0", "--unicode", "always", "--fill"])
         self.assertTrue(output.getvalue().startswith("example"))
-        self.assertEqual(style.options, RenderOptions())
+        self.assertEqual(style.options, RenderOptions.resolve(RenderCapabilities()))
 
     def test_unknown_styles_are_rejected_and_diagnostics_report_selection(self):
         self.assertEqual(parser().parse_args([]).style, DEFAULT_STYLE)

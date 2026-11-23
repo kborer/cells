@@ -80,7 +80,7 @@ def _net(frame, world, e, unicode):
             x, y = start[0] * (1 - t) + end[0] * t, start[1] * (1 - t) + end[1] * t
             col, row = round(x), round(y / ASPECT)
             if (col * 31 + row * 17) % 101 / 101 < visible and next(
-                world._obstacles(x, y, 0.1, exempt=e.source), None
+                world.obstacles(x, y, 0.1, exempt=e.source), None
             ) is None:
                 char = "~" if abs(end[0] - start[0]) > abs(end[1] - start[1]) else ":"
                 frame.put(col, row, char, Ink.NET)
@@ -117,5 +117,5 @@ def _pipette(frame, world, e, unicode):
         for index in range(20):
             angle = index * TAU / 20
             x, y = e.x + ux * 3 + math.cos(angle) * radius, e.y + math.sin(angle) * radius
-            if next(world._obstacles(x, y, 0.2), None) is None:
+            if next(world.obstacles(x, y, 0.2), None) is None:
                 frame.point(x, y, "." if e.age > 14 else "o", Ink.NUTRIENT)

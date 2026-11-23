@@ -19,6 +19,7 @@ from .world import World
 from .interaction import Interaction, enable_mouse, restore_mouse, read_click
 from .frame import FILL_INKS, Frame, Ink, PALETTES
 from .render import HELP_INKS, help_lines, overlay
+from .capabilities import RenderCapabilities
 from .styles import DEFAULT_STYLE, STYLES, RenderOptions, get_style
 from . import __version__
 
@@ -51,6 +52,7 @@ class TerminalRenderer:
     def __init__(self, screen, theme: str, color: str = "auto", backend=None, fill: bool = False):
         self.curses = backend if backend is not None else load_curses()
         self.color = color
+        self.theme = theme
         self.screen = screen
         self.previous: Frame | None = None
         self.attributes: dict[Ink, int] = {ink: 0 for ink in Ink}
@@ -67,6 +69,20 @@ class TerminalRenderer:
             needed = len(Ink) + (len(Ink) - len(FILL_INKS)) * len(FILL_INKS)
             pairs = getattr(self.curses, "COLOR_PAIRS", 0)
             self.fill = self.curses.COLORS >= 256 and pairs > needed
+
+    def capabilities(self, unicode: bool = False) -> RenderCapabilities:
+        """Resolve current output support; fill may have failed since last frame."""
+        colors = 0
+        if self._palette and self.theme != "mono":
+            colors = 256 if self.curses.COLORS >= 256 else 8
+        return RenderCapabilities(
+            unicode=unicode,
+            colors=colors,
+            backgrounds=self.fill,
+            blocks=unicode,
+            color_pairs=getattr(self.curses, "COLOR_PAIRS", 0) if colors else 0,
+            theme=self.theme,
+        )
 
     def _colors(self, theme: str) -> None:
         curses = self.curses
@@ -282,7 +298,9 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 notice, notice_until = " / ".join(dict.fromkeys(phases)), tick + 1
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
-        frame = style.render(world, RenderOptions(unicode=unicode, fill=renderer.fill))
+        frame = style.render(
+            world, RenderOptions.resolve(renderer.capabilities(unicode), fill=args.fill)
+        )
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
         elif help_visible:
@@ -573,7 +591,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         for _ in range(round(args.at / STEP)):
             world.update()
-        print(get_style(args.style).render(world, RenderOptions()).plain())
+        print(
+            get_style(args.style).render(world, RenderOptions.resolve(RenderCapabilities())).plain()
+        )
         return 0
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         cli.error("interactive mode needs a terminal; use --snapshot for plain-text output")

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Share public geometry and foreground selection across presentations, negotiate
+  rendering capabilities, and centralize microbial defaults in a keyed catalog.
+- Add staged style-comparison scenes, a foreground/background SVG gallery, and
+  reusable contributor checks for pure rendering, fallbacks, and bounded caches.
+
 - Add a presentation-style interface and `--style classic`, keeping the existing
   appearance and simulation behavior while preparing for optional renderers.
 

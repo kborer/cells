@@ -38,7 +38,8 @@ steps. Resizing and interactive tools change that history.
 
 | Task | Start here |
 | --- | --- |
-| Organism sizes, geometry, state | `terminal_cells/models.py` |
+| Organism defaults and state | `terminal_cells/catalog.py`, `models.py` |
+| Shared boundaries and foreground selection | `terminal_cells/geometry.py` |
 | Movement, capture, reproduction, arrivals | `terminal_cells/world.py` |
 | Classic shapes and organelles | `terminal_cells/render.py` |
 | Presentation styles and shared frames | `terminal_cells/styles.py`, `frame.py`; [style architecture](docs/PRESENTATION_STYLES.md) |
@@ -48,6 +49,7 @@ steps. Resizing and interactive tools change that history.
 | Command options, help, terminal cleanup | `terminal_cells/cli.py` |
 | Packaging and release automation | `pyproject.toml`, `debian/`, `tools/release.py`, `.github/workflows/` |
 
+For supported extension points, see [the extension contract](docs/EXTENSIONS.md).
 For a worked example, see [adding an organism](docs/ADDING_ORGANISMS.md).
 `cells` and `cells.py` are source-checkout entry points; the installed command uses
 `terminal_cells.cli:main`. `terminal_cells/__init__.py` exposes the compatibility API.
@@ -102,6 +104,7 @@ Regenerate only previews affected by your change:
 | Interactive tools | `python tools/experiments.py` |
 | Animated demo | `python tools/demo.py` |
 | CLI help/manual | `python tools/manpage.py` |
+| Style comparison | `python tools/gallery.py --scene division --output /tmp/division.svg` |
 
 The GIF generator needs Pillow and uses Noto Sans Runic or FreeMono for phage
 symbols when available; `--symbol-font PATH` supplies another Runic-capable font.

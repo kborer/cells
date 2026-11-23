@@ -6,6 +6,8 @@ import math
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .catalog import BACTERIAL_KINDS, MICROBE_KINDS, MICROBES  # noqa: F401
+
 
 TAU = math.tau
 
@@ -60,22 +62,6 @@ PHAGE_CONTACT = 3.2 + PHAGE_PADDING  # Resting rod, approached along its long ax
 INFECTION_CHANCE = 0.45  # One roll per encounter, independent of frame rate.
 
 
-MICROBE_KINDS = (
-    "rod",
-    "coccus",
-    "spiral",
-    "bacillus",
-    "spirochete",
-    "vibrio",
-    "colony",
-    "yeast",
-    "trypanosome",
-)
-
-
-BACTERIAL_KINDS = frozenset(MICROBE_KINDS) - {"yeast", "trypanosome"}
-
-
 VIRAL_STAGES = (
     ("attachment", 3.0),
     ("injection", 4.0),
@@ -107,17 +93,7 @@ def bacterial_padding(bacterium) -> float:
 
 
 def microbe_axes(microbe) -> tuple[float, float]:
-    return {
-        "rod": (3.2, 1.65),
-        "coccus": (2.3, 2.3),
-        "spiral": (3.2, 1.65),
-        "bacillus": (2.4 + (microbe.units - 1) * 1.7, 1.7),
-        "spirochete": (7.0, 1.7),
-        "vibrio": (3.3, 2.1),
-        "colony": (3.2 + microbe.units * 0.35, 3.2 + microbe.units * 0.35),
-        "yeast": (3.3 + microbe.bud * 3.5, 2.7),
-        "trypanosome": (7.0, 2.4),
-    }[microbe.kind]
+    return MICROBES[microbe.kind].body_axes(microbe.units, microbe.bud)
 
 
 def disc_axes(disc) -> tuple[float, float]:

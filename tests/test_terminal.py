@@ -154,6 +154,27 @@ class TerminalTests(unittest.TestCase):
         renderer.draw(retinted)
         self.assertEqual([write[:3] for write in screen.writes], [(1, 1, "o")])
 
+    def test_backend_reports_resolved_capabilities(self):
+        from terminal_cells.styles import RenderOptions
+
+        for color, theme, count, pairs, expected in (
+            ("never", "slide", 256, 256, (0, False)),
+            ("always", "mono", 256, 256, (0, False)),
+            ("always", "slide", 8, 64, (8, False)),
+            ("always", "slide", 256, 64, (256, False)),
+            ("always", "slide", 256, 256, (256, True)),
+        ):
+            with self.subTest(color=color, theme=theme, colors=count, pairs=pairs):
+                backend = FakeCurses()
+                backend.COLORS, backend.COLOR_PAIRS = count, pairs
+                renderer = TerminalRenderer(Screen(), theme, color, backend, fill=True)
+                caps = renderer.capabilities(unicode=True)
+                self.assertEqual((caps.colors, caps.backgrounds), expected)
+                self.assertEqual(caps.theme, theme)
+                self.assertTrue(caps.blocks)
+                self.assertEqual(RenderOptions.resolve(caps, fill=True).fill, expected[1])
+                self.assertFalse(renderer.capabilities().blocks)
+
     def test_fill_keeps_sprites_tinted_but_clears_captions(self):
         frame = Frame(8, 3, fill=True)
         for col in range(8):
@@ -179,6 +200,7 @@ class TerminalTests(unittest.TestCase):
         frame.put(1, 1, " ", Ink.NUCLEUS, bg=Ink.FILL_NUCLEUS)
         renderer.draw(frame)
         self.assertFalse(renderer.fill)
+        self.assertFalse(renderer.capabilities(True).backgrounds)
         self.assertIsNone(renderer.previous, "the next glyph-only frame must repaint fully")
 
     def test_fill_frames_tint_bodies_but_keep_outlines_on_the_slide(self):

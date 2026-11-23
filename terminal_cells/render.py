@@ -9,7 +9,6 @@ from .models import (
     Cell,
     DIVISION_TIME,
     ENCLOSE_TIME,
-    MICROBE_KINDS,
     Phage,
     SEAL_TIME,
     State,
@@ -27,6 +26,8 @@ from .models import (
     viral_stage,
 )
 from .world import World
+from .catalog import MICROBES
+from .geometry import nuclear_bodies, nuclear_mask
 
 # Re-export the existing drawing API for callers of terminal_cells.render.
 from .frame import (  # noqa: F401
@@ -41,22 +42,17 @@ from .frame import (  # noqa: F401
 )
 
 
-BACTERIA_INKS = dict(
-    zip(
-        MICROBE_KINDS,
-        (
-            Ink.BACTERIA,
-            Ink.COCCUS,
-            Ink.SPIRAL,
-            Ink.BACILLUS,
-            Ink.SPIROCHETE,
-            Ink.VIBRIO,
-            Ink.COLONY,
-            Ink.YEAST,
-            Ink.TRYPANOSOME,
-        ),
-    )
-)
+BACTERIA_INKS = {
+    "rod": Ink.BACTERIA,
+    "coccus": Ink.COCCUS,
+    "spiral": Ink.SPIRAL,
+    "bacillus": Ink.BACILLUS,
+    "spirochete": Ink.SPIROCHETE,
+    "vibrio": Ink.VIBRIO,
+    "colony": Ink.COLONY,
+    "yeast": Ink.YEAST,
+    "trypanosome": Ink.TRYPANOSOME,
+}
 
 
 def membrane_char(angle: float, unicode: bool) -> str:
@@ -259,14 +255,7 @@ def draw_nuclear_body(
 ) -> None:
     # One raster anchor keeps the envelope, chromatin, and nucleolus together.
     cx, cy = round(x), round(y / ASPECT)
-    rx, ry = nucleus_radii(radius)
-    rx, rows = max(2, round(rx)), max(1, round(ry / ASPECT))
-    mask = {
-        (col, row)
-        for row in range(-rows, rows + 1)
-        for col in range(-rx, rx + 1)
-        if (col / rx) ** 2 + (row / rows) ** 2 <= 1.12
-    }
+    mask = nuclear_mask(radius)
     for col, row in mask:
         if any((col + dx, row + dy) not in mask for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]):
             char = membrane_char(math.atan2(row * ASPECT, col), unicode)
@@ -427,12 +416,7 @@ def draw_capture(frame: Frame, cell: Cell, unicode: bool, now: float = 0) -> Non
 def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
     if cell.kind == "neutrophil":
         # Three persistent lobes linked by thin chromatin bridges.
-        cx, cy = round(cell.x), round(cell.y / ASPECT) * ASPECT
-        points = [
-            (cx - cell.radius * 0.28, cy - 2),
-            (cx, cy + 2),
-            (cx + cell.radius * 0.28, cy - 2),
-        ]
+        points = [(x, y) for x, y, _, _ in nuclear_bodies(cell)]
         for left, right in zip(points, points[1:]):
             frame.line(*left, *right, Ink.NUCLEUS, unicode)
         for x, y in points:
@@ -440,13 +424,8 @@ def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
     elif cell.state is State.DIVIDE:
         draw_mitosis(frame, cell, unicode)
     else:
-        draw_nuclear_body(
-            frame,
-            cell.x - math.cos(cell.phase) * cell.radius * 0.22,
-            cell.y - math.sin(cell.phase) * cell.radius * 0.22,
-            cell.radius,
-            unicode,
-        )
+        for x, y, radius, nucleolus in nuclear_bodies(cell):
+            draw_nuclear_body(frame, x, y, radius, unicode, nucleolus)
 
 
 def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
@@ -522,7 +501,7 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
         for index in range(12):
             angle = burst.angle + index * TAU / 12
             x, y = burst.x + math.cos(angle) * radius, burst.y + math.sin(angle) * radius
-            if next(world._obstacles(x, y, 1.1), None) is None:
+            if next(world.obstacles(x, y, 1.1), None) is None:
                 char = "*" if burst.age < 0.35 else ":" if burst.age < 1 else "."
                 frame.point(x, y, char, Ink.LYSIS, burst.age < 0.5)
     from .event_render import draw_sighting
@@ -615,7 +594,7 @@ def draw_nutrients(frame: Frame, world: World, unicode: bool) -> None:
                 threshold = 4 if patch.amount > 2 else 2
                 if (
                     speckle < threshold
-                    and next(world._obstacles(col, row * ASPECT, 1), None) is None
+                    and next(world.obstacles(col, row * ASPECT, 1), None) is None
                 ):
                     frame.put(col, row, "·" if unicode else ".", Ink.NUTRIENT)
 
@@ -628,7 +607,7 @@ def draw_hyphae(frame: Frame, world: World, unicode: bool) -> None:
             steps = max(1, math.ceil(math.hypot(xx - x, yy - y) * 2))
             for step in range(steps + 1):
                 px, py = x + (xx - x) * step / steps, y + (yy - y) * step / steps
-                if next(world._obstacles(px, py, 1.3), None) is None:
+                if next(world.obstacles(px, py, 1.3), None) is None:
                     char = (
                         "+"
                         if step == 0
@@ -637,7 +616,7 @@ def draw_hyphae(frame: Frame, world: World, unicode: bool) -> None:
                     frame.point(px, py, char, Ink.FUNGUS)
         for index, _ in hypha.tips:
             x, y = hypha.nodes[index]
-            if next(world._obstacles(x, y, 1.3), None) is None:
+            if next(world.obstacles(x, y, 1.3), None) is None:
                 frame.point(x, y, "o", Ink.FUNGUS)
 
 
@@ -766,7 +745,7 @@ def draw_bacterium(
 
     if bacterium.infection is not None:
         tail *= 1 - smooth(bacterium.infection.age / 7)
-    if bacterium.kind in ("rod", "spiral", "vibrio", "trypanosome") and not compact and tail > 0.02:
+    if MICROBES[bacterium.kind].flagellum and not compact and tail > 0.02:
         # A traveling wave implies flagellar propulsion. Clip the flexible tail
         # at obstacles; the body uses the larger physical collision clearance.
         previous = None
@@ -774,7 +753,7 @@ def draw_bacterium(
             t = index / 32
             wave = math.sin(t * TAU * 1.4 - now * 7 + bacterium.id) * 1.1 * t
             x, y = point(-a - 0.3 - t * 6 * tail, wave * tail)
-            if world and next(world._obstacles(x, y, 1.1), None) is not None:
+            if world and next(world.obstacles(x, y, 1.1), None) is not None:
                 break
             if previous is not None:
                 frame.line(*previous, x, y, ink, unicode)

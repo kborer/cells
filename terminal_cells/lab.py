@@ -5,156 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import math
 
-from .events import segment_distance
+from .geometry import Target, hit_test, targets  # noqa: F401
 from .models import (
-    ASPECT,
     SEAL_TIME,
     State,
     Vesicle,
-    bacterial_scale,
-    disc_axes,
-    microbe_axes,
     PHAGE_PADDING,
     DEBRIS_PADDING,
     bacterial_padding,
-    smooth,
     clamp,
 )
-
-
-@dataclass(eq=False)
-class Target:
-    kind: str
-    obj: object
-    segment: tuple[int, int] | None = None
-
-    def alive(self, world):
-        pools = {
-            "cell": world.cells,
-            "microbe": world.bacteria.values(),
-            "red": world.red_cells,
-            "phage": world.phages.values(),
-            "hypha": world.hyphae,
-            "food": world.nutrients,
-        }
-        if self.kind == "rotifer":
-            return world.events.active is self.obj
-        return any(obj is self.obj for obj in pools[self.kind]) and (
-            self.segment is None or self.segment in self.obj.edges
-        )
-
-    @property
-    def center(self):
-        if self.kind == "hypha":
-            a, b = (self.obj.nodes[i] for i in self.segment)
-            return (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
-        return self.obj.x, self.obj.y
-
-    @property
-    def extent(self):
-        if self.kind == "cell":
-            return self.obj.extent()
-        if self.kind == "microbe":
-            return max(microbe_axes(self.obj)) * bacterial_scale(self.obj)
-        if self.kind == "red":
-            return self.obj.size
-        return {"phage": 1.5, "rotifer": 14, "food": 5, "hypha": 2}[self.kind]
-
-
-def targets(world):
-    result = [Target("cell", obj) for obj in world.cells]
-    result += [Target("microbe", obj) for obj in world.bacteria.values()]
-    result += [Target("red", obj) for obj in world.red_cells]
-    result += [Target("phage", obj) for obj in world.phages.values()]
-    result += [Target("hypha", obj, obj.edges[0]) for obj in world.hyphae if obj.edges]
-    result += [Target("food", obj) for obj in world.nutrients]
-    if world.events.active is not None and world.events.active.kind == "rotifer":
-        result.append(Target("rotifer", world.events.active))
-    return result
-
-
-def hit_test(world, col: int, row: int):
-    """Pick the visible body under a terminal cell; never pick a distant neighbor."""
-    x, y = col, row * ASPECT
-    hits = []
-    for order, target in enumerate(targets(world)):
-        obj = target.obj
-        cx, cy = target.center
-        dx, dy = x - cx, y - cy
-        priority = {
-            "food": 0,
-            "hypha": 1,
-            "red": 2,
-            "phage": 3,
-            "microbe": 4,
-            "cell": 5,
-            "rotifer": 7,
-        }[target.kind]
-        distance = math.hypot(dx, dy)
-        if target.kind == "cell":
-            inside = distance <= obj.outline(math.atan2(dy, dx), world.time) + 0.6
-            order = obj.radius  # Large cells are painted over small cells.
-        elif target.kind == "microbe":
-            owner = next((c for c in world.cells if c.id == obj.owner), None)
-            if owner and owner.state is State.ENCLOSE:
-                priority = 6
-            a, b = microbe_axes(obj)
-            scale = bacterial_scale(obj)
-            ux, uy = math.cos(obj.angle), math.sin(obj.angle)
-            inside = ((dx * ux + dy * uy) / (a * scale + 0.6)) ** 2 + (
-                (-dx * uy + dy * ux) / (b * scale + 0.8)
-            ) ** 2 <= 1
-        elif target.kind == "red":
-            a, b = disc_axes(obj)
-            inside = (dx / (a + 0.5)) ** 2 + (dy / (b + 0.8)) ** 2 <= 1
-        elif target.kind == "phage":
-            if abs(math.cos(obj.angle)) > abs(math.sin(obj.angle)):
-                inside = row == round(obj.y / ASPECT) and col in (
-                    round(obj.x - 0.5),
-                    round(obj.x - 0.5) + 1,
-                )
-            else:
-                inside = (col, row) == (round(obj.x), round(obj.y / ASPECT))
-        elif target.kind == "hypha":
-            edges = sorted(
-                obj.edges, key=lambda edge: segment_distance(x, y, *(obj.nodes[i] for i in edge))
-            )
-            target.segment = edges[0]
-            inside = segment_distance(x, y, *(obj.nodes[i] for i in target.segment)) <= 1
-        elif target.kind == "rotifer":
-            ux, uy = math.cos(obj.angle), math.sin(obj.angle)
-            along, across = dx * ux + dy * uy, -dx * uy + dy * ux
-            opening = smooth((obj.age - 14) / 6) * (1 - smooth((obj.age - 48) / 5))
-            inside = (
-                (along / 9.6) ** 2 + (across / 4.6) ** 2 <= 1
-                or -14 <= along <= -8
-                and abs(across) <= 2
-                or any(
-                    math.hypot(along - 11, across - sign * (1 + opening * 2.5))
-                    < 1.3 + opening * 1.7
-                    for sign in (-1, 1)
-                )
-            )
-        else:
-            inside = distance < obj.radius
-        if inside:
-            hits.append((priority, order, target))
-    if not hits:
-        return None
-    top = max(hits, key=lambda item: item[:2])[2]
-    # The renderer redraws a nucleus over ingested cargo. Respect that visible
-    # foreground when a captured microbe and its owner's nucleus overlap.
-    if top.kind == "microbe" and top.obj.owner is not None:
-        owner = next(
-            (t for _, _, t in hits if t.kind == "cell" and t.obj.id == top.obj.owner), None
-        )
-        if owner is not None and 0 <= col < world.width and 0 <= row < world.height / ASPECT:
-            from .render import Ink, render
-
-            pixel = render(world).pixels[row][col]
-            if pixel.ink in (Ink.NUCLEUS, Ink.NUCLEOLUS, Ink.DNA, Ink.SPINDLE):
-                return owner
-    return top
 
 
 @dataclass

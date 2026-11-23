@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 import io
+import importlib
 import math
 import pickle
 from contextlib import redirect_stderr
@@ -155,8 +156,11 @@ class ExtensionTests(unittest.TestCase):
             world.cells = [cell]
             frame = Frame(100, 40)
             draw_nucleus(frame, cell, False)
-            with patch(
-                "terminal_cells.render.render",
+            # Python 3.10 mock.patch follows package attributes, where the
+            # compatibility export named "render" shadows the render module.
+            with patch.object(
+                importlib.import_module("terminal_cells.render"),
+                "render",
                 side_effect=AssertionError("rendering during selection"),
             ):
                 for row, pixels in enumerate(frame.pixels):

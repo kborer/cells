@@ -17,7 +17,9 @@ import time
 from .models import STEP, State, division_stage, viral_stage
 from .world import World
 from .interaction import Interaction, enable_mouse, restore_mouse, read_click
-from .render import FILL_INKS, Frame, HELP_INKS, Ink, PALETTES, help_lines, overlay, render
+from .frame import FILL_INKS, Frame, Ink, PALETTES
+from .render import HELP_INKS, help_lines, overlay
+from .styles import DEFAULT_STYLE, STYLES, RenderOptions, get_style
 from . import __version__
 
 
@@ -175,6 +177,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
     )
     interaction = Interaction(columns // 2, rows // 2, mouse=mouse) if args.interactive else None
     renderer = TerminalRenderer(screen, args.theme, args.color, fill=args.fill)
+    style = get_style(args.style)
     unicode = use_unicode(args.unicode, screen.encoding)
     paused, help_visible, stats = False, False, args.stats
     help_offset = 0
@@ -279,7 +282,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 notice, notice_until = " / ".join(dict.fromkeys(phases)), tick + 1
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
-        frame = render(world, unicode, renderer.fill)
+        frame = style.render(world, RenderOptions(unicode=unicode, fill=renderer.fill))
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
         elif help_visible:
@@ -432,6 +435,9 @@ def parser() -> argparse.ArgumentParser:
         help="slower motion, lower FPS, and no micropipette; explicit speed/fps win",
     )
     display.add_argument(
+        "--style", choices=tuple(STYLES), default=DEFAULT_STYLE, help="presentation style"
+    )
+    display.add_argument(
         "--theme",
         choices=PALETTES,
         default="slide",
@@ -531,6 +537,7 @@ def diagnostics(args) -> dict:
         "interactive_requested": args.interactive,
         "color_requested": use_color(args.color),
         "fill_requested": args.fill,
+        "style": args.style,
         "unicode_requested": use_unicode(args.unicode, sys.stdout.encoding),
         "note": "Capabilities are requested settings; actual colors depend on terminal support.",
     }
@@ -566,7 +573,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         for _ in range(round(args.at / STEP)):
             world.update()
-        print(render(world).plain())
+        print(get_style(args.style).render(world, RenderOptions()).plain())
         return 0
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         cli.error("interactive mode needs a terminal; use --snapshot for plain-text output")

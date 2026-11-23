@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add a presentation-style interface and `--style classic`, keeping the existing
+  appearance and simulation behavior while preparing for optional renderers.
+
 - Add `--fill`, which tints cell bodies from behind on 256-color terminals:
   cytoplasm, nuclei, and red blood cells get background colors while membranes,
   organelles, and microbes stay as glyphs on top.

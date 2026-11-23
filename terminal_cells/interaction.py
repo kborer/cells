@@ -7,7 +7,7 @@ import math
 
 from .lab import Target, hit_test, targets
 from .models import ASPECT, State, clamp, division_stage, viral_stage
-from .render import Ink
+from .frame import Ink
 
 TOOLS = ("Inspect", "Lyse", "Feed", "Stir")
 

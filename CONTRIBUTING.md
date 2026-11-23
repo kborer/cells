@@ -40,7 +40,8 @@ steps. Resizing and interactive tools change that history.
 | --- | --- |
 | Organism sizes, geometry, state | `terminal_cells/models.py` |
 | Movement, capture, reproduction, arrivals | `terminal_cells/world.py` |
-| Shapes, organelles, palettes | `terminal_cells/render.py` |
+| Classic shapes and organelles | `terminal_cells/render.py` |
+| Presentation styles and shared frames | `terminal_cells/styles.py`, `frame.py`; [style architecture](docs/PRESENTATION_STYLES.md) |
 | Rare sightings | `terminal_cells/events.py`, `event_render.py` |
 | Experimental tool effects | `terminal_cells/lab.py`, `lab_render.py` |
 | Mouse/keyboard tools and footer | `terminal_cells/interaction.py` |

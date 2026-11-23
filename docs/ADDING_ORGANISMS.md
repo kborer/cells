@@ -12,14 +12,14 @@ to follow before changing its shape or adding a related microbial form:
 
 | Part | Existing implementation |
 | --- | --- |
-| Identity and state | `MICROBE_KINDS` and `Bacterium` in `terminal_cells/models.py` |
-| Body geometry | The `vibrio` entry in `microbe_axes()`; `bacterial_padding()` adds collision clearance |
-| Initial movement | `World._add_bacterium()` in `terminal_cells/world.py` gives vibrio a speed multiplier |
+| Identity and state | `MICROBES` in `terminal_cells/catalog.py`; `Bacterium` in `models.py` |
+| Body geometry | The `vibrio` catalog entry supplies `microbe_axes()`; `bacterial_padding()` adds collision clearance |
+| Initial movement | The catalog speed multiplier is applied by `World._add_bacterium()` |
 | Behavior | Shared microbe updates, evasion steering, nutrient seeking, and fungal-rail selection in `world.py` |
 | Body shape | The `vibrio` branch of `draw_special_microbe()` in `terminal_cells/render.py` |
 | Flagellum | `draw_bacterium()` supplies the traveling wave, orientation, and clipping at obstacles |
-| Color and help | `Ink.VIBRIO`, palettes, `BACTERIA_INKS`, and `LEGEND` in `render.py` |
-| Inspection name | `describe()` in `terminal_cells/interaction.py` |
+| Color and help | `Ink.VIBRIO` and palettes in `frame.py`; keyed `BACTERIA_INKS` and `LEGEND` in `render.py` |
+| Inspection name | The catalog label used by `describe()` in `interaction.py` |
 | Illustrated example | `diversity_preview()` in `tools/preview.py` |
 | ASCII fallback beside Unicode | `fallback_preview()` in `tools/preview.py` |
 
@@ -55,21 +55,22 @@ Reuse `Bacterium` and the shared lifecycle where they fit. The name is historica
 yeast and trypanosomes use this model too. A separate state model is useful only
 when shared state and geometry cannot express the organism's behavior.
 
-1. Add identity, geometry, and any necessary state in `models.py`. Decide whether
-   it is a bacterial phage host: `BACTERIAL_KINDS` currently treats every kind
-   except yeast and trypanosome as bacterial.
-2. Review population setup in `World.__init__()`: weights follow `MICROBE_KINDS`
-   order, and the blood scene has a corresponding multiplier tuple. Keep them
-   aligned. Missing-type arrivals and offspring selection use the shared list;
-   offspring retain their parent's kind.
-3. Implement its silhouette and color. `BACTERIA_INKS` pairs an ordered ink tuple
-   with `MICROBE_KINDS`; extend both. If adding an ink, update every palette in
-   matching enum order. Add legend and inspection names, plus an illustrated
-   preview. Use shape as well as color to distinguish it.
-4. Decide which behaviors apply. Review the explicit kind lists for flagella,
-   evasion, fungal rails, and reproduction. Shared reproduction already handles
-   ordinary fission, while yeast/trypanosomes and chains/colonies have special
-   paths. Respect ownership, infection, edge entry, and population limits.
+1. Add a keyed `MicrobeSpec` to `MICROBES` in `catalog.py`: label, body axes,
+   growth, speed, blood-scene weight, bacterial identity, phage-host status, flagellum, evasion,
+   fungal rails, and reproduction defaults. Existing insertion order is preserved
+   for seeded selection. `MICROBE_KINDS`, `BACTERIAL_KINDS`, and
+   `PHAGE_HOST_KINDS` derive from it; bacterial identity and phage susceptibility
+   are separate decisions.
+2. Reuse catalog-backed geometry and behavior where they fit. Dynamic state stays
+   on `Bacterium` in `models.py`; interactions still belong to `world.py`. New
+   behavior code is needed only when the shared lifecycle cannot express it.
+3. Implement silhouette and color in each presentation that supports the new
+   organism. Classic's `BACTERIA_INKS` is keyed, so adding a species cannot shift
+   another species' ink. Add an `Ink` and palette entries in `frame.py` if needed,
+   plus legend and illustrated previews. Inspection uses the catalog label.
+4. Check growth and offspring geometry, reproduction, edge arrivals, phage-host
+   selection, capture, and fungal rails. Public geometry queries are documented in
+   [the extension contract](EXTENSIONS.md). Respect ownership and population caps.
 5. Update [biology](BIOLOGY.md) and [colors](COLORS.md), including biological
    simplifications. Keep the README as an overview rather than a species catalog.
 

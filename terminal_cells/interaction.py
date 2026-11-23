@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
-from .lab import Target, hit_test, targets
+from .geometry import Target, hit_test, targets
+from .catalog import MICROBES
 from .models import ASPECT, State, clamp, division_stage, viral_stage
-from .render import Ink
+from .frame import Ink
 
 TOOLS = ("Inspect", "Lyse", "Feed", "Stir")
 
@@ -46,17 +47,7 @@ def describe(world, target):
             if obj.speed
             else "drifting"
         )
-        label = {
-            "rod": "Rod bacterium",
-            "coccus": "Coccus",
-            "spiral": "Short spiral",
-            "bacillus": "Bacillary chain",
-            "spirochete": "Spirochete",
-            "vibrio": "Vibrio",
-            "colony": "Coccal colony",
-            "yeast": "Yeast",
-            "trypanosome": "Trypanosome",
-        }[obj.kind]
+        label = MICROBES[obj.kind].label
         if obj.entry is not None:
             phase = "arriving from edge"
         return f"{label} #{obj.id} / {phase}"

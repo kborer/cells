@@ -27,6 +27,7 @@ Screensaver mode exits on any key. Resizing does not exit it.
 | `--density 0.25..3` | `1` | Scale populations to terminal area |
 | `--speed 0.125..8` | `1` | Simulation speed |
 | `--fps 1..60` | `30` | Maximum rendering rate |
+| `--style classic` | `classic` | Presentation style; currently the original glyph renderer |
 | `--theme slide\|amber\|light\|mono` | `slide` | Color palette |
 | `--scene mixed\|blood\|microbial` | `mixed` | Community preset |
 | `--calm` | Off | 0.5× speed, 10 FPS, and no micropipette; explicit speed/FPS override |

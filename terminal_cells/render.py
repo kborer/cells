@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
-from enum import Enum
 from .models import (
     ASPECT,
     Bacterium,
     Cell,
     DIVISION_TIME,
     ENCLOSE_TIME,
-    MICROBE_KINDS,
     Phage,
     SEAL_TIME,
     State,
@@ -29,260 +26,33 @@ from .models import (
     viral_stage,
 )
 from .world import World
+from .catalog import MICROBES
+from .geometry import nuclear_bodies, nuclear_mask
 
-
-class Ink(Enum):
-    DEBRIS = 1
-    RED = 2
-    RED_DIM = 3
-    CYTOPLASM = 4
-    MEMBRANE = 5
-    NUCLEUS = 6
-    BACTERIA = 7
-    VESICLE = 8
-    TEXT = 9
-    MUTED = 10
-    COCCUS = 11
-    SPIRAL = 12
-    SPINDLE = 13
-    DNA = 14
-    CAPTURE = 15
-    MITOCHONDRION = 16
-    RETICULUM = 17
-    NUCLEOLUS = 18
-    MICROBIAL_DNA = 19
-    PHAGE = 20
-    VIRAL_DNA = 21
-    LYSIS = 22
-    BACILLUS = 23
-    SPIROCHETE = 24
-    VIBRIO = 25
-    COLONY = 26
-    YEAST = 27
-    TRYPANOSOME = 28
-    FUNGUS = 29
-    NEUTROPHIL = 30
-    NUTRIENT = 31
-    ROTIFER = 32
-    NET = 33
-    GLASS = 34
-    BACKGROUND_FAR = 35
-    BACKGROUND_NEAR = 36
-    # Background tints for filled bodies: glyphs keep their ink and draw on top.
-    FILL_CYTOPLASM = 37
-    FILL_NEUTROPHIL = 38
-    FILL_NUCLEUS = 39
-    FILL_RED = 40
-    FILL_RED_PALE = 41
-
-
-# Entity hues retain their meaning across colored themes. Internal anatomy and
-# transient effects may share a family; outside-cell silhouettes have distinct inks.
-_DARK = [
-    (239, 0),
-    (196, 1),
-    (88, 1),
-    (23, 6),
-    (115, 2),
-    (141, 5),
-    (222, 3),
-    (108, 2),
-    (252, 7),
-    (244, 7),
-    (81, 6),
-    (213, 5),
-    (75, 4),
-    (183, 5),
-    (231, 7),
-    (173, 1),
-    (66, 6),
-    (225, 7),
-    (250, 7),
-    (154, 2),
-    (121, 2),
-    (231, 7),
-    (208, 3),
-    (165, 5),
-    (44, 6),
-    (69, 4),
-    (180, 3),
-    (230, 7),
-    (100, 3),
-    (153, 4),
-    (65, 2),
-    (216, 1),
-    (189, 5),
-    (246, 7),
-    (236, 7),
-    (240, 7),
-    (235, 0),
-    (236, 0),
-    (53, 0),
-    (52, 0),
-    (234, 0),
-]
-_LIGHT = [
-    (250, 7),
-    (160, 1),
-    (124, 1),
-    (152, 6),
-    (29, 2),
-    (90, 5),
-    (94, 3),
-    (28, 2),
-    (16, 0),
-    (242, 0),
-    (25, 6),
-    (126, 5),
-    (24, 4),
-    (55, 5),
-    (16, 0),
-    (166, 1),
-    (30, 6),
-    (54, 5),
-    (237, 0),
-    (64, 2),
-    (22, 2),
-    (16, 0),
-    (166, 3),
-    (91, 5),
-    (30, 6),
-    (20, 4),
-    (137, 3),
-    (235, 0),
-    (58, 3),
-    (67, 4),
-    (65, 2),
-    (167, 1),
-    (97, 5),
-    (242, 0),
-    (249, 0),
-    (245, 0),
-    (254, 7),
-    (255, 7),
-    (189, 7),
-    (224, 7),
-    (255, 7),
-]
-_AMBER = list(_DARK)
-_AMBER[Ink.CYTOPLASM.value - 1] = (58, 3)
-_AMBER[Ink.TEXT.value - 1] = (230, 7)
-_AMBER[Ink.MUTED.value - 1] = (137, 3)
-_AMBER[Ink.FILL_CYTOPLASM.value - 1] = (234, 0)
-PALETTES = {"slide": _DARK, "amber": _AMBER, "light": _LIGHT, "mono": [(244, 7)] * len(Ink)}
-FILL_INKS = (
-    Ink.FILL_CYTOPLASM,
-    Ink.FILL_NEUTROPHIL,
-    Ink.FILL_NUCLEUS,
-    Ink.FILL_RED,
-    Ink.FILL_RED_PALE,
+# Re-export the existing drawing API for callers of terminal_cells.render.
+from .frame import (  # noqa: F401
+    EMPTY,
+    KEEP,
+    FILL_INKS,
+    Frame,
+    Ink,
+    PALETTES,
+    Pixel,
+    line_pixels,
 )
 
 
-BACTERIA_INKS = dict(
-    zip(
-        MICROBE_KINDS,
-        (
-            Ink.BACTERIA,
-            Ink.COCCUS,
-            Ink.SPIRAL,
-            Ink.BACILLUS,
-            Ink.SPIROCHETE,
-            Ink.VIBRIO,
-            Ink.COLONY,
-            Ink.YEAST,
-            Ink.TRYPANOSOME,
-        ),
-    )
-)
-
-
-@dataclass(frozen=True)
-class Pixel:
-    char: str = " "
-    ink: Ink = Ink.DEBRIS
-    bold: bool = False
-    # Optional background tint; None keeps the terminal background.
-    bg: Ink | None = None
-
-
-EMPTY = Pixel()
-KEEP = object()
-
-
-class Frame:
-    """A character grid. With ``fill``, bodies also carry background tints.
-
-    Fill mode pairs a background color with a foreground glyph in each cell:
-    cell bodies become solid tinted shapes and membranes, organelles, and
-    microbes are drawn as glyphs on top, instead of texture characters
-    standing in for the interior.
-    """
-
-    def __init__(self, columns: int, rows: int, fill: bool = False):
-        self.width, self.height = columns, rows
-        self.fill = fill
-        self.pixels = [[EMPTY for _ in range(columns)] for _ in range(rows)]
-
-    def put(self, x: int, y: int, char: str, ink: Ink, bold: bool = False, bg=KEEP) -> None:
-        if 0 <= x < self.width and 0 <= y < self.height:
-            if bg is KEEP:
-                # Glyphs drawn over a filled body stay inside it.
-                bg = self.pixels[y][x].bg
-            self.pixels[y][x] = Pixel(char, ink, bold, bg if self.fill else None)
-
-    def point(self, x: float, y: float, char: str, ink: Ink, bold: bool = False) -> None:
-        self.put(round(x), round(y / ASPECT), char, ink, bold)
-
-    def text(
-        self, x: int, y: int, text: str, ink: Ink = Ink.TEXT, bold: bool = False, bg=None
-    ) -> None:
-        # Captions default to the plain background so they read over any body.
-        for offset, char in enumerate(text):
-            self.put(x + offset, y, char, ink, bold, bg)
-
-    def line(
-        self,
-        x1: float,
-        y1: float,
-        x2: float,
-        y2: float,
-        ink: Ink,
-        unicode: bool = False,
-        bg=KEEP,
-    ) -> None:
-        dx, dy = x2 - x1, y2 - y1
-        if abs(dy) < abs(dx) * 0.45:
-            char = "─" if unicode else "-"
-        elif abs(dx) < abs(dy) * 0.3:
-            char = "│" if unicode else "|"
-        else:
-            char = "\\" if dx * dy > 0 else "/"
-        for col, row in line_pixels(x1, y1, x2, y2):
-            self.put(col, row, char, ink, bg=bg)
-
-    def plain(self) -> str:
-        return "\n".join("".join(p.char for p in row) for row in self.pixels)
-
-
-def line_pixels(x1: float, y1: float, x2: float, y2: float):
-    # Rasterize in character coordinates: subpixel sampling can thicken
-    # diagonal strokes into staircases of adjacent slashes.
-    x, y, end_x, end_y = round(x1), round(y1 / ASPECT), round(x2), round(y2 / ASPECT)
-    width, height = abs(end_x - x), abs(end_y - y)
-    sx, sy = 1 if x < end_x else -1, 1 if y < end_y else -1
-    error = width - height
-    while True:
-        yield x, y
-        if (x, y) == (end_x, end_y):
-            break
-        twice = 2 * error
-        if twice > -height:
-            error -= height
-            x += sx
-        if twice < width:
-            error += width
-            y += sy
+BACTERIA_INKS = {
+    "rod": Ink.BACTERIA,
+    "coccus": Ink.COCCUS,
+    "spiral": Ink.SPIRAL,
+    "bacillus": Ink.BACILLUS,
+    "spirochete": Ink.SPIROCHETE,
+    "vibrio": Ink.VIBRIO,
+    "colony": Ink.COLONY,
+    "yeast": Ink.YEAST,
+    "trypanosome": Ink.TRYPANOSOME,
+}
 
 
 def membrane_char(angle: float, unicode: bool) -> str:
@@ -485,14 +255,7 @@ def draw_nuclear_body(
 ) -> None:
     # One raster anchor keeps the envelope, chromatin, and nucleolus together.
     cx, cy = round(x), round(y / ASPECT)
-    rx, ry = nucleus_radii(radius)
-    rx, rows = max(2, round(rx)), max(1, round(ry / ASPECT))
-    mask = {
-        (col, row)
-        for row in range(-rows, rows + 1)
-        for col in range(-rx, rx + 1)
-        if (col / rx) ** 2 + (row / rows) ** 2 <= 1.12
-    }
+    mask = nuclear_mask(radius)
     for col, row in mask:
         if any((col + dx, row + dy) not in mask for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]):
             char = membrane_char(math.atan2(row * ASPECT, col), unicode)
@@ -653,12 +416,7 @@ def draw_capture(frame: Frame, cell: Cell, unicode: bool, now: float = 0) -> Non
 def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
     if cell.kind == "neutrophil":
         # Three persistent lobes linked by thin chromatin bridges.
-        cx, cy = round(cell.x), round(cell.y / ASPECT) * ASPECT
-        points = [
-            (cx - cell.radius * 0.28, cy - 2),
-            (cx, cy + 2),
-            (cx + cell.radius * 0.28, cy - 2),
-        ]
+        points = [(x, y) for x, y, _, _ in nuclear_bodies(cell)]
         for left, right in zip(points, points[1:]):
             frame.line(*left, *right, Ink.NUCLEUS, unicode)
         for x, y in points:
@@ -666,13 +424,8 @@ def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
     elif cell.state is State.DIVIDE:
         draw_mitosis(frame, cell, unicode)
     else:
-        draw_nuclear_body(
-            frame,
-            cell.x - math.cos(cell.phase) * cell.radius * 0.22,
-            cell.y - math.sin(cell.phase) * cell.radius * 0.22,
-            cell.radius,
-            unicode,
-        )
+        for x, y, radius, nucleolus in nuclear_bodies(cell):
+            draw_nuclear_body(frame, x, y, radius, unicode, nucleolus)
 
 
 def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
@@ -748,7 +501,7 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
         for index in range(12):
             angle = burst.angle + index * TAU / 12
             x, y = burst.x + math.cos(angle) * radius, burst.y + math.sin(angle) * radius
-            if next(world._obstacles(x, y, 1.1), None) is None:
+            if next(world.obstacles(x, y, 1.1), None) is None:
                 char = "*" if burst.age < 0.35 else ":" if burst.age < 1 else "."
                 frame.point(x, y, char, Ink.LYSIS, burst.age < 0.5)
     from .event_render import draw_sighting
@@ -841,7 +594,7 @@ def draw_nutrients(frame: Frame, world: World, unicode: bool) -> None:
                 threshold = 4 if patch.amount > 2 else 2
                 if (
                     speckle < threshold
-                    and next(world._obstacles(col, row * ASPECT, 1), None) is None
+                    and next(world.obstacles(col, row * ASPECT, 1), None) is None
                 ):
                     frame.put(col, row, "·" if unicode else ".", Ink.NUTRIENT)
 
@@ -854,7 +607,7 @@ def draw_hyphae(frame: Frame, world: World, unicode: bool) -> None:
             steps = max(1, math.ceil(math.hypot(xx - x, yy - y) * 2))
             for step in range(steps + 1):
                 px, py = x + (xx - x) * step / steps, y + (yy - y) * step / steps
-                if next(world._obstacles(px, py, 1.3), None) is None:
+                if next(world.obstacles(px, py, 1.3), None) is None:
                     char = (
                         "+"
                         if step == 0
@@ -863,7 +616,7 @@ def draw_hyphae(frame: Frame, world: World, unicode: bool) -> None:
                     frame.point(px, py, char, Ink.FUNGUS)
         for index, _ in hypha.tips:
             x, y = hypha.nodes[index]
-            if next(world._obstacles(x, y, 1.3), None) is None:
+            if next(world.obstacles(x, y, 1.3), None) is None:
                 frame.point(x, y, "o", Ink.FUNGUS)
 
 
@@ -992,7 +745,7 @@ def draw_bacterium(
 
     if bacterium.infection is not None:
         tail *= 1 - smooth(bacterium.infection.age / 7)
-    if bacterium.kind in ("rod", "spiral", "vibrio", "trypanosome") and not compact and tail > 0.02:
+    if MICROBES[bacterium.kind].flagellum and not compact and tail > 0.02:
         # A traveling wave implies flagellar propulsion. Clip the flexible tail
         # at obstacles; the body uses the larger physical collision clearance.
         previous = None
@@ -1000,7 +753,7 @@ def draw_bacterium(
             t = index / 32
             wave = math.sin(t * TAU * 1.4 - now * 7 + bacterium.id) * 1.1 * t
             x, y = point(-a - 0.3 - t * 6 * tail, wave * tail)
-            if world and next(world._obstacles(x, y, 1.1), None) is not None:
+            if world and next(world.obstacles(x, y, 1.1), None) is not None:
                 break
             if previous is not None:
                 frame.line(*previous, x, y, ink, unicode)

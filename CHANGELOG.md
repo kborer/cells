@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add opt-in `--style microscopy`: stained bodies, pale red-cell centers,
+  anchored granules, and block contours, preserving lifecycle/effect glyphs.
+  Classic remains the default and supplies limited-terminal fallbacks.
+
 - Share public geometry and foreground selection across presentations, negotiate
   rendering capabilities, and centralize microbial defaults in a keyed catalog.
 - Add staged style-comparison scenes, a foreground/background SVG gallery, and

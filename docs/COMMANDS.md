@@ -27,7 +27,7 @@ Screensaver mode exits on any key. Resizing does not exit it.
 | `--density 0.25..3` | `1` | Scale populations to terminal area |
 | `--speed 0.125..8` | `1` | Simulation speed |
 | `--fps 1..60` | `30` | Maximum rendering rate |
-| `--style classic` | `classic` | Presentation style; currently the original glyph renderer |
+| `--style classic\|microscopy` | `classic` | Presentation; microscopy is an experimental stained/block style |
 | `--theme slide\|amber\|light\|mono` | `slide` | Color palette |
 | `--scene mixed\|blood\|microbial` | `mixed` | Community preset |
 | `--calm` | Off | 0.5× speed, 10 FPS, and no micropipette; explicit speed/FPS override |
@@ -49,6 +49,11 @@ Screensaver mode exits on any key. Resizing does not exit it.
 ```sh
 cells --snapshot --seed 42 --size 100x30 --at 12
 ```
+
+The experimental `--style microscopy` uses stained bodies and block contours on
+256-color Unicode terminals, with background tints enabled automatically. It falls
+back to classic drawing for ASCII, colorless, basic-color, or limited-pair output.
+Use `--theme light` on a light terminal background. Classic remains the default.
 
 Snapshots always use ASCII without ANSI escape sequences. `--at` is simulation
 time, independent of `--speed`. A seed reproduces simulation steps within the same version at a given

@@ -51,6 +51,7 @@ slide, and **?** for help and the species legend.
 cells --scene microbial --observe  # Microbes, with lifecycle captions
 cells --scene blood               # A blood-inspired community
 cells --calm --theme light        # Slower movement on a light background
+cells --style microscopy --theme light  # Experimental stained/block presentation
 cells --ascii                    # Plain ASCII glyphs
 cells --screensaver              # Exit on any key
 ```

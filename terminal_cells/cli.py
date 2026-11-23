@@ -49,10 +49,19 @@ def advance_frame(world: World, accumulator: float, *, events: bool = True) -> f
 
 
 class TerminalRenderer:
-    def __init__(self, screen, theme: str, color: str = "auto", backend=None, fill: bool = False):
+    def __init__(
+        self,
+        screen,
+        theme: str,
+        color: str = "auto",
+        backend=None,
+        fill: bool = False,
+        palette=None,
+    ):
         self.curses = backend if backend is not None else load_curses()
         self.color = color
         self.theme = theme
+        self.palette = tuple(palette if palette is not None else PALETTES[theme])
         self.screen = screen
         self.previous: Frame | None = None
         self.attributes: dict[Ink, int] = {ink: 0 for ink in Ink}
@@ -66,7 +75,7 @@ class TerminalRenderer:
             # Reserve a pair for every (glyph ink, tint) combination up front, so
             # tinting never runs out of pairs halfway through a slide. This stays
             # below 256, which also fits the 8-bit pair field of A_COLOR.
-            needed = len(Ink) + (len(Ink) - len(FILL_INKS)) * len(FILL_INKS)
+            needed = len(Ink) + len(Ink) * len(FILL_INKS)
             pairs = getattr(self.curses, "COLOR_PAIRS", 0)
             self.fill = self.curses.COLORS >= 256 and pairs > needed
 
@@ -95,13 +104,13 @@ class TerminalRenderer:
             background = -1
         except curses.error:
             pass
-        for ink, (extended, basic) in zip(Ink, PALETTES[theme]):
+        for ink, (extended, basic) in zip(Ink, self.palette):
             try:
                 curses.init_pair(ink.value, extended if curses.COLORS >= 256 else basic, background)
                 self.attributes[ink] = curses.color_pair(ink.value)
             except curses.error:
                 pass
-        self._palette = [extended for extended, _ in PALETTES[theme]]
+        self._palette = [extended for extended, _ in self.palette]
 
     def _attribute(self, ink: Ink, bg: Ink | None) -> int:
         if bg is None or not self.fill:
@@ -192,8 +201,11 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
         microscope_events=not args.calm,
     )
     interaction = Interaction(columns // 2, rows // 2, mouse=mouse) if args.interactive else None
-    renderer = TerminalRenderer(screen, args.theme, args.color, fill=args.fill)
     style = get_style(args.style)
+    fill_requested = args.fill or style.default_fill
+    renderer = TerminalRenderer(
+        screen, args.theme, args.color, fill=fill_requested, palette=style.palette(args.theme)
+    )
     unicode = use_unicode(args.unicode, screen.encoding)
     paused, help_visible, stats = False, False, args.stats
     help_offset = 0
@@ -299,7 +311,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
         frame = style.render(
-            world, RenderOptions.resolve(renderer.capabilities(unicode), fill=args.fill)
+            world, RenderOptions.resolve(renderer.capabilities(unicode), fill=fill_requested)
         )
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
@@ -453,7 +465,10 @@ def parser() -> argparse.ArgumentParser:
         help="slower motion, lower FPS, and no micropipette; explicit speed/fps win",
     )
     display.add_argument(
-        "--style", choices=tuple(STYLES), default=DEFAULT_STYLE, help="presentation style"
+        "--style",
+        choices=tuple(STYLES),
+        default=DEFAULT_STYLE,
+        help="presentation style; microscopy is experimental",
     )
     display.add_argument(
         "--theme",

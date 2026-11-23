@@ -3,7 +3,10 @@
 The simulation is shared; styles determine how it looks. `cells` and
 `cells --style classic` use the original glyph renderer. `--fill` remains an
 optional classic enhancement, and `--theme` still selects a color palette.
-No microscopy style is implemented yet.
+`cells --style microscopy` opts into an experimental stained/block presentation;
+`--theme light` suits a light terminal background. It automatically requests body
+tints and falls back to classic drawing when color, block glyphs, or sufficient
+color pairs are unavailable. Snapshots remain plain ASCII in either style.
 
 ## Boundaries
 
@@ -48,7 +51,10 @@ changing the world.
 ## Adding a style
 
 Implement `PresentationStyle.render(world, options)` in a separate module and
-register an instance under a unique name in `STYLES`. CLI choices derive from that
+register an instance under a unique name in `STYLES`. Set `default_fill` to request
+background tints automatically, and implement `palette(theme)` to return a full
+semantic-ink palette (256-color/basic-color pairs). Preserve species/effect color
+meanings when changing stain backgrounds. CLI choices derive from that
 registry. The stateless classic adapter is the starting example. Keep any future
 caches bounded; do not retain worlds in the shared style instance. Implement
 `cache_info()` returning a mapping of cache names to `CacheInfo(size, limit)`;
@@ -62,26 +68,39 @@ at the normal 30 FPS target. Use public `World.obstacles()` / `World.is_blocked(
 `geometry.py`. Selection and nuclear foreground now share geometry and never
 render a classic frame. Preserve that shared foreground order in new styles.
 
-## Planned microscopy experiment
+## Experimental microscopy style
 
-[Issue #35](https://github.com/kborer/cells/issues/35) links visual references and
-[a working adaptation in Pocket](https://github.com/gordol/n810-revival/pull/17).
-Its `pocket/shell/apps/cells/slide.py` combines stained raster shapes with anatomy
-glyphs, stable specimen texture, pale-centered red blood cells, and half/quarter
-blocks chosen from a 2-by-4 sample grid per terminal character. Its GUI frontend
-and native compositor are separate from our terminal-only scope.
+[Compare classic and microscopy](microscopy.svg), generated with
+`python tools/gallery.py --scene ingestion --at 9 --style classic --style microscopy --theme light --fill --output docs/microscopy.svg`.
 
-Prototype that as an optional style after this foundation. Start with the shared
-semantic-color frame; the current curses backend supports finite 256-color pairs,
-not arbitrary RGB pairs. If the experiment needs true color or a larger palette,
-extend the shared frame/output contract with explicit capability negotiation and
-fallbacks rather than putting terminal escape sequences in a style. Preserve our
-full division and ingestion animations. Pocket's six rendered frames per second are not
-evidence of performance at our normal frame rate.
+[Issue #35](https://github.com/kborer/cells/issues/35) and the
+[Pocket adaptation](https://github.com/gordol/n810-revival/pull/17) inspired this
+terminal-only experiment. `microscopy.py` independently paints four coverage
+samples per character into half/quarter blocks, with specimen-local deterministic
+granules, pale red-cell centers, and stained cytoplasm and nuclei. It uses the
+shared geometry and composites the existing organelles, capture effects, mitosis,
+viral cycle, and tool effects. DNA-trap sources retain their canonical fade.
 
-Keep `classic` the default while comparing readability and performance. Live style
-switching, external plugins, and a pixel GUI are future decisions, not requirements
-for the first optional style.
+The prototype uses finite semantic-color pairs, not true-color raster output.
+Species and transient-effect hues retain their classic meanings; only cytoplasm
+and stain backgrounds differ. The backend reserves up to 246 color pairs, below
+the 256-pair limit. ASCII, basic-color, colorless, mono-theme, and plain snapshot
+output use classic drawing. A failed tint allocation also triggers that fallback.
+
+Classic remains the default. The experiment does more work per frame: in one
+local dense-scene measurement, classic/microscopy rendering took approximately
+4/13 ms at 80x24, 9/22 ms at 120x40, and 20/51 ms at 200x60, excluding terminal
+writes. These are observations, not portable limits. Large dense views can fall
+below 30 FPS; caching and finer stain design are further experiments. Measure
+styles on your machine with:
+
+```sh
+python tools/benchmark.py --style microscopy --samples 100
+python tools/benchmark.py --style classic --fill --samples 100
+```
+
+Live switching, external plugins, a pixel GUI, and a true-color backend remain
+future decisions. The microscopy prototype is not a replacement for classic.
 
 ## Run contributor contract checks
 

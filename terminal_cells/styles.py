@@ -8,10 +8,11 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Mapping, Protocol
 
-from .frame import Frame
+from .frame import Frame, PALETTES
 from .capabilities import RenderCapabilities
 from .render import render
 from .world import World
+from . import microscopy
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,9 @@ class PresentationStyle(Protocol):
     """
 
     name: str
+    default_fill: bool
+
+    def palette(self, theme: str): ...
 
     def cache_info(self) -> Mapping[str, "CacheInfo"]: ...
 
@@ -66,6 +70,10 @@ class ClassicStyle:
     """The original glyph presentation, including optional body tints."""
 
     name: str = "classic"
+    default_fill: bool = False
+
+    def palette(self, theme: str):
+        return PALETTES[theme]
 
     def cache_info(self) -> Mapping[str, CacheInfo]:
         return {}
@@ -74,7 +82,29 @@ class ClassicStyle:
         return render(world, unicode=options.unicode, fill=options.fill)
 
 
-STYLES: Mapping[str, PresentationStyle] = MappingProxyType({"classic": ClassicStyle()})
+@dataclass(frozen=True)
+class MicroscopyStyle:
+    """Experimental stained bodies and quarter-cell contours."""
+
+    name: str = "microscopy"
+    default_fill: bool = True
+
+    def palette(self, theme: str):
+        return microscopy.palette(theme)
+
+    def cache_info(self) -> Mapping[str, CacheInfo]:
+        return {}
+
+    def render(self, world: World, options: RenderOptions) -> Frame:
+        return microscopy.render(world, options)
+
+
+STYLES: Mapping[str, PresentationStyle] = MappingProxyType(
+    {
+        "classic": ClassicStyle(),
+        "microscopy": MicroscopyStyle(),
+    }
+)
 DEFAULT_STYLE = "classic"
 
 

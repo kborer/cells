@@ -39,6 +39,11 @@ implementation details; older `_obstacles` callers still work through a wrapper.
 The compatibility exports in `terminal_cells` and `terminal_cells.render` remain
 available, but new contributions should import the owning module shown here.
 
+Styles expose `default_fill` and `palette(theme)` so the terminal and comparison
+gallery use the same negotiated effects and semantic-color definitions. Each
+palette has one (256-color, basic-color) pair per `Ink`, in enum order. Themes
+remain `slide`, `amber`, `light`, and `mono` for either style.
+
 Styles report every drawing cache through `cache_info()`, using
 `CacheInfo(size, limit)`. Limits must be positive finite integers; styles without
 caches return `{}`. Do not cache mutable World instances or return cached frames

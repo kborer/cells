@@ -1442,6 +1442,8 @@ class TerminalTests(unittest.TestCase):
         self.session(
             b"?jjkk?s",
             (
+                "--style",
+                "microscopy",
                 "--scene",
                 "microbial",
                 "--calm",

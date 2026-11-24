@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add shiwng’s seeded half-block/line-art comparison preview, adapted to the
+  shared drawing modules without changing runtime rendering.
+
 - Share public geometry and foreground selection across presentations, negotiate
   rendering capabilities, and centralize microbial defaults in a keyed catalog.
 - Add staged style-comparison scenes, a foreground/background SVG gallery, and

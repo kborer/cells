@@ -5,6 +5,16 @@
 - Add shiwng’s seeded half-block/line-art comparison preview, adapted to the
   shared drawing modules without changing runtime rendering.
 
+- Name the filled-glyph presentation `stained` and add a separate experimental
+  `raster` style that shades the whole specimen, with pink red cells, pale immune
+  cells, purple nuclei, and green microbes/filaments on a light slide.
+- Add bounded indexed-color frame output, raster-aware legends and galleries,
+  and a repeatable blood-smear scene. Classic remains the default.
+
+- Add opt-in `--style stained`: stained bodies, pale red-cell centers,
+  anchored granules, and block contours, preserving lifecycle/effect glyphs.
+  Classic remains the default and supplies limited-terminal fallbacks.
+
 - Share public geometry and foreground selection across presentations, negotiate
   rendering capabilities, and centralize microbial defaults in a keyed catalog.
 - Add staged style-comparison scenes, a foreground/background SVG gallery, and

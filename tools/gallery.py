@@ -15,7 +15,7 @@ from terminal_cells.style_checks import check_style  # noqa: E402
 from tools.preview import xterm_hex  # noqa: E402
 
 
-def svg(panels, theme):
+def svg(panels, theme, palettes=None):
     """An SVG with actual background tints, suitable for comparing --fill too."""
     width = max(frame.width for _, frame in panels) * 9 + 32
     height = sum(frame.height * 18 + 48 for _, frame in panels) + 16
@@ -28,21 +28,31 @@ def svg(panels, theme):
         '<g font-family="DejaVu Sans Mono,monospace" font-size="14" xml:space="preserve">',
     ]
     offset = 16
-    for label, frame in panels:
+    for index, (label, frame) in enumerate(panels):
+        if palettes is not None:
+            colors = {ink: xterm_hex(value[0]) for ink, value in zip(Ink, palettes[index])}
         text = "#222222" if theme == "light" else "#dddddd"
         lines.append(f'<text x="16" y="{offset + 16}" fill="{text}">{escape(label)}</text>')
         offset += 36
         for y, row in enumerate(frame.pixels):
             for x, pixel in enumerate(row):
                 px, py = 16 + x * 9, offset + y * 18
-                if pixel.bg is not None:
+                if pixel.bg is not None or pixel.background is not None:
+                    background_color = (
+                        xterm_hex(pixel.background)
+                        if pixel.background is not None
+                        else colors[pixel.bg]
+                    )
                     lines.append(
-                        f'<rect x="{px}" y="{py - 14}" width="9" height="18" fill="{colors[pixel.bg]}"/>'
+                        f'<rect x="{px}" y="{py - 14}" width="9" height="18" fill="{background_color}"/>'
                     )
                 if pixel.char != " ":
                     bold = ' font-weight="bold"' if pixel.bold else ""
+                    foreground_color = (
+                        xterm_hex(pixel.color) if pixel.color is not None else colors[pixel.ink]
+                    )
                     lines.append(
-                        f'<text x="{px}" y="{py}" fill="{colors[pixel.ink]}"{bold}>{escape(pixel.char)}</text>'
+                        f'<text x="{px}" y="{py}" fill="{foreground_color}"{bold}>{escape(pixel.char)}</text>'
                     )
         offset += frame.height * 18 + 12
     return "\n".join(lines + ["</g></svg>", ""])
@@ -79,21 +89,24 @@ def main(argv=None):
         color_pairs=256 if not plain and args.theme != "mono" else 0,
         theme=args.theme,
     )
-    options = RenderOptions.resolve(caps, fill=args.fill)
     panels = []
+    palettes = []
     for at in SCENES[args.scene].times if args.at is None else (args.at,):
         for name in args.style or STYLES:
             try:
                 world = make_scene(args.scene, seed=args.seed, at=at)
             except ValueError as error:
                 parser.error(str(error))
-            frame = check_style(get_style(name), world, options)
+            style = get_style(name)
+            options = RenderOptions.resolve(caps, fill=args.fill or style.default_fill)
+            frame = check_style(style, world, options)
+            palettes.append(style.palette(args.theme))
             label = f"{args.scene} / {name} / seed {args.seed} / {world.time:.3f}s / {frame.width}x{frame.height}"
             panels.append((label, frame))
     content = (
         "\n\n".join(label + "\n" + frame.plain() for label, frame in panels) + "\n"
         if plain
-        else svg(panels, args.theme)
+        else svg(panels, args.theme, palettes)
     )
     if args.output:
         args.output.write_text(content)

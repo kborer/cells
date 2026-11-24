@@ -2,39 +2,31 @@
 
 ## Unreleased
 
-- Make microbial capacity, initial placement, growth, and soft avoidance account
-  for organism footprints; shorten flagella near neighboring bodies and retain
-  edge-based immigration when space is tight (#23).
-- Add overview/normal/detail magnification presets and H/J/K/L panning. Shared
-  camera projection preserves simulation geometry, all presentation styles,
-  ASCII snapshots, foreground selection, and interactive tool coordinates (#30).
-- Add sparse complement coating, enhanced immune recognition, selective pore
-  formation/lysis, Inspect/observation feedback, and `--no-complement` (#51).
+## 0.2.0 — 2026-11-24
 
-- Add shiwng’s seeded half-block/line-art comparison preview, adapted to the
-  shared drawing modules without changing runtime rendering.
-
-- Name the filled-glyph presentation `stained` and add a separate experimental
-  `raster` style that shades the whole specimen, with pink red cells, pale immune
-  cells, purple nuclei, and green microbes/filaments on a light slide.
-- Add bounded indexed-color frame output, raster-aware legends and galleries,
-  and a repeatable blood-smear scene. Classic remains the default.
-
-- Add opt-in `--style stained`: stained bodies, pale red-cell centers,
-  anchored granules, and block contours, preserving lifecycle/effect glyphs.
-  Classic remains the default and supplies limited-terminal fallbacks.
-
-- Share public geometry and foreground selection across presentations, negotiate
-  rendering capabilities, and centralize microbial defaults in a keyed catalog.
-- Add staged style-comparison scenes, a foreground/background SVG gallery, and
-  reusable contributor checks for pure rendering, fallbacks, and bounded caches.
-
-- Add a presentation-style interface and `--style classic`, keeping the existing
-  appearance and simulation behavior while preparing for optional renderers.
-
-- Add `--fill`, which tints cell bodies from behind on 256-color terminals:
-  cytoplasm, nuclei, and red blood cells get background colors while membranes,
-  organelles, and microbes stay as glyphs on top.
+- Add `--magnification overview|normal|detail` and H/J/K/L panning for wider
+  views and bacterial close-ups. Rendering and interactive tools share the same
+  camera projection without changing biological sizes or simulation rules (#30).
+- Reduce crowding with footprint-aware population limits, initial placement,
+  growth, and soft avoidance. Flagella shorten near neighbors; new arrivals
+  continue to enter through the edges when space is tight (#23).
+- Add complement coating, enhanced immune recognition, and selective bacterial
+  pore formation and lysis, with Inspect/observation feedback. Disable this
+  illustrative behavior with `--no-complement` (#51).
+- Add experimental `--style stained` and `--style raster` presentations. Stained
+  fills cell bodies behind the familiar glyphs; raster shades the whole specimen
+  on a light slide and can reduce frame rates. Classic remains the default,
+  provides limited-terminal fallbacks, and supports optional `--fill` tinting.
+- Establish presentation-style and contributor extension interfaces, shared
+  geometry and foreground selection, capability negotiation, a keyed microbial
+  catalog, and checks for rendering purity, fallbacks, and bounded caches.
+- Add staged style-comparison scenes, a repeatable blood smear, SVG galleries,
+  and ASCII/Unicode previews. Include shiwng’s seeded half-block/line-art
+  comparison as a contributor preview without changing runtime rendering.
+- Improve light-theme particle contrast, document pipx/PATH troubleshooting and
+  terminal compatibility reports, fix the cbonsai link, and harden terminal-test
+  startup and mouse-protocol portability.
+- Update pinned development tools and GitHub security actions.
 
 ## 0.1.3 — 2026-11-18
 

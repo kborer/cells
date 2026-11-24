@@ -117,7 +117,7 @@ def verify_candidate(run, repository, commit):
 def prepare(new_version):
     def version_key(value):
         match = re.fullmatch(
-            r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:(a|b|rc)([0-9]+))?", value
+            r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:(a|b|rc)(0|[1-9][0-9]*))?", value
         )
         if not match:
             raise ValueError("Use a three-part version, optionally followed by aN, bN or rcN")
@@ -132,24 +132,35 @@ def prepare(new_version):
 
     if version_key(new_version) <= version_key(version()):
         raise ValueError("The next release version must increase")
-    p = ROOT / "terminal_cells/__init__.py"
-    p.write_text(
-        re.sub(
-            r'^__version__ = [\'"][^\'"]+[\'"]',
-            f'__version__ = "{new_version}"',
-            p.read_text(),
-            count=1,
-            flags=re.M,
-        )
+    version_path = ROOT / "terminal_cells/__init__.py"
+    changelog_path = ROOT / "CHANGELOG.md"
+    changelog = changelog_path.read_text()
+    if len(re.findall(r"^## Unreleased$", changelog, re.M)) != 1:
+        raise ValueError("Expected exactly one '## Unreleased' changelog heading")
+    if re.search(rf"^## {re.escape(new_version)}(?:\s|$)", changelog, re.M):
+        raise ValueError("The new version already has a changelog entry")
+    source, count = re.subn(
+        r'^__version__ = [\'"][^\'"]+[\'"]',
+        f'__version__ = "{new_version}"',
+        version_path.read_text(),
+        flags=re.M,
     )
-    p = ROOT / "CHANGELOG.md"
-    p.write_text(
-        p.read_text().replace(
-            "## Unreleased\n",
-            f"## Unreleased\n\n## {new_version} — {date.today().isoformat()}\n",
-            1,
-        )
+    if count != 1:
+        raise ValueError("Expected exactly one upstream version declaration")
+    from tools.manpage import render as manual
+
+    # Validate and generate everything before changing any release source file.
+    manual_content = manual(new_version)
+    changelog = changelog.replace(
+        "## Unreleased\n",
+        f"## Unreleased\n\n## {new_version} — {date.today().isoformat()}\n",
+        1,
     )
+    manual_path = ROOT / "docs/cells.1"
+    manual_path.parent.mkdir(parents=True, exist_ok=True)
+    version_path.write_text(source)
+    changelog_path.write_text(changelog)
+    manual_path.write_text(manual_content)
 
 
 def deb_source(output, series, upstream=None):

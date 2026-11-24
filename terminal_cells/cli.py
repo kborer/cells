@@ -20,7 +20,7 @@ from .interaction import Interaction, enable_mouse, restore_mouse, read_click
 from .frame import FILL_INKS, Frame, Ink, PALETTES
 from .render import HELP_INKS, help_lines, overlay
 from .capabilities import RenderCapabilities
-from .styles import DEFAULT_STYLE, STYLES, RenderOptions, get_style
+from .styles import DEFAULT_STYLE, STYLES, RenderOptions, get_style, effective_style
 from .viewport import Camera, MAGNIFICATIONS
 from . import __version__
 
@@ -240,8 +240,6 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
     unicode = use_unicode(args.unicode, screen.encoding)
     paused, help_visible, stats = False, False, args.stats
     help_offset = 0
-    help_content = help_lines(args.interactive, legend=style.legend)
-    help_inks = HELP_INKS | (dict(style.legend) if style.legend is not None else {})
     notice, notice_until = "", 0.0
     counters = (
         world.engulfed,
@@ -256,16 +254,24 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
     last = time.monotonic()
     accumulator = 0.0
     started = last
+    next_frame = last
     while True:
         tick = time.monotonic()
         if args.duration is not None and tick - started >= args.duration:
             return
         dimensions = screen.getmaxyx()
+        redraw = dimensions != (rows, columns)
         if dimensions != (rows, columns):
             rows, columns = dimensions
             camera.columns, camera.rows = columns, rows
             world.resize(*camera.simulation_size())
             camera.x = camera.y = None
+        options = RenderOptions.resolve(renderer.capabilities(unicode), fill=fill_requested)
+        presentation = effective_style(style, options)
+        help_content = help_lines(args.interactive, legend=presentation.legend)
+        help_inks = HELP_INKS | (
+            dict(presentation.legend) if presentation.legend is not None else {}
+        )
         help_limit = max(0, len(help_content[2:]) - max(1, rows - 7))
         help_offset = min(help_offset, help_limit)
         # Drain queued input so rapid key presses remain responsive.
@@ -273,6 +279,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
             key = screen.getch()
             if key == -1:
                 break
+            redraw = True
             if key == curses.KEY_RESIZE:
                 renderer.previous = None
                 continue
@@ -370,9 +377,12 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 notice, notice_until = " / ".join(dict.fromkeys(phases)), tick + 1
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
-        frame = camera.render(
-            style, world, RenderOptions.resolve(renderer.capabilities(unicode), fill=fill_requested)
-        )
+        # Biology and input run independently of the requested drawing rate.
+        # A short heartbeat also gives 8x speed room within the catch-up budget.
+        if tick < next_frame and not redraw:
+            time.sleep(min(1 / 60, next_frame - tick))
+            continue
+        frame = camera.render(presentation, world, options)
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
         elif help_visible:
@@ -441,19 +451,8 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
             if interaction is not None:
                 interaction.draw(frame, world, tick, paused)
         renderer.draw(frame)
-        # Input is checked at least 15 times/second, even at low requested FPS.
-        remaining = max(0, 1 / args.fps - (time.monotonic() - tick))
-        while remaining > 0:
-            if args.duration is not None and time.monotonic() - started >= args.duration:
-                return
-            delay = min(remaining, 1 / 30)
-            time.sleep(delay)
-            remaining -= delay
-            key = screen.getch()
-            if key != -1:
-                # Return the consumed key to the queue for the next frame.
-                curses.ungetch(key)
-                break
+        next_frame = tick + 1 / args.fps
+        time.sleep(min(1 / 60, max(0, next_frame - time.monotonic())))
 
 
 def positive_number(value: str) -> float:

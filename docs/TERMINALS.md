@@ -48,11 +48,13 @@ TERM merely to suppress an error.
 
 Terminal modes are restored on quit, duration expiry, Ctrl-C, and SIGTERM. A
 forced SIGKILL cannot run cleanup; the shell's `reset` command can restore a
-terminal after an externally killed process. Catch-up simulation work is capped
-per frame, so overload slows simulated time rather than accumulating an unbounded
+terminal after an externally killed process. Simulation and input run independently
+of `--fps`; lowering the drawing rate does not slow biology. Catch-up work is capped
+per simulation tick, so overload slows simulated time rather than accumulating an unbounded
 backlog. `--duration` always measures wall time; `--at` measures snapshot simulation
-time, independent of speed. Snapshots ignore display-only options; event enablement and calm's restriction
-on microscope events still apply. They always use
+time, independent of speed. Snapshots honor magnification and event enablement,
+including calm's restriction on microscope events. Color, fill, and Unicode
+effects are disabled in snapshots. They always use
 ASCII without terminal escapes. Equal seeds require the same version, dimensions,
 and update/resize sequence for reproducibility.
 

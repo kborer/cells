@@ -48,6 +48,39 @@ class CrowdingTests(unittest.TestCase):
         world.bacteria[0].owner = 7
         self.assertEqual(index.drift(world.bacteria[0]), (0, 0))
 
+    def test_bud_completes_when_the_finished_pair_fits(self):
+        world = World(80, 24, 42, density=0.25, rare_events=False, complement=False)
+        world.cells.clear()
+        world.red_cells.clear()
+        world.bacteria = {0: organism(0, kind="yeast"), 1: organism(1, x=60, kind="yeast")}
+        world.bacteria[1].divide_at = math.inf
+        world.next_id = 2
+        parent = world.bacteria[0]
+        self.assertLess(area("yeast") * 3, budget(world))
+        for _ in range(390):
+            world._reproduce_microbe(parent, 1 / 30, 100)
+            if len(world.bacteria) == 3:
+                break
+        self.assertEqual(len(world.bacteria), 3)
+        self.assertEqual(parent.bud, 0)
+
+    def test_bud_waits_when_the_completed_pair_would_exceed_budget(self):
+        world = World(80, 24, 42, density=0.25, rare_events=False)
+        world.bacteria = {i: organism(i, kind="yeast") for i in range(3)}
+        parent = world.bacteria[0]
+        parent.bud = 0.2
+        world._reproduce_microbe(parent, 1, 100)
+        self.assertEqual(parent.bud, 0.2)
+        self.assertEqual(len(world.bacteria), 3)
+
+    def test_completed_pair_budget_preserves_the_parents_swelling(self):
+        world = World(80, 24, 42, density=0.25, rare_events=False)
+        world.bacteria = {0: organism(0, kind="yeast"), 1: organism(1, kind="yeast")}
+        parent = world.bacteria[0]
+        parent.swelling = 2
+        world._reproduce_microbe(parent, 1, 100)
+        self.assertEqual(parent.bud, 0)
+
     def test_seeded_placement_finds_a_gap_without_mutating_other_entities(self):
         world = World(80, 24, 42, rare_events=False)
         world.cells.clear()

@@ -17,6 +17,7 @@ python -m pip install -r requirements-dev.txt -r requirements-build.txt
 ruff check .
 ruff format --check .
 python -m unittest discover -s tests -v
+python tools/manpage.py --check
 python tools/preview.py
 export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
 python tools/check_reproducible.py
@@ -25,6 +26,9 @@ python -m twine check --strict dist/*.whl dist/*.tar.gz
 python tools/check_dist.py
 python tools/release.py manifest --commit "$(git rev-parse HEAD)"
 ```
+
+Release preparation regenerates the manual with the new version. If CLI options
+change afterward, run `python tools/manpage.py` again; CI checks freshness.
 
 Start with an empty `dist/`. Validation rebuilds the source archive, installs
 fresh isolated wheels outside the checkout, and exercises snapshots and real

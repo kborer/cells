@@ -155,6 +155,10 @@ class Entry:
     remaining: float
     target_x: float
     target_y: float
+    age: float = 0.0
+    blocked: float = 0.0
+    exiting: bool = False
+    retry: bool = True
 
 
 @dataclass

@@ -18,6 +18,8 @@ import time
 import venv
 import zipfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 
 def run(command, cwd: Path, env=None) -> str:
     result = subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=180)
@@ -82,8 +84,10 @@ def wheel_metadata(path: Path):
         if len(licenses) != 1 or archive.read(licenses[0]) != (root / "LICENSE").read_bytes():
             raise ValueError("The wheel must contain the complete license text")
         manuals = [n for n in names if n.endswith("/share/man/man1/cells.1")]
-        if len(manuals) != 1 or not archive.read(manuals[0]).startswith(b".TH CELLS 1"):
-            raise ValueError("The wheel must contain the cells manual page")
+        from tools.manpage import render as manual
+
+        if len(manuals) != 1 or archive.read(manuals[0]).decode() != manual(metadata["Version"]):
+            raise ValueError("The wheel must contain the current cells manual page")
         entries = configparser.ConfigParser()
         entries.read_string(
             archive.read(metadata_files[0].replace("METADATA", "entry_points.txt")).decode()

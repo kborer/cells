@@ -139,7 +139,10 @@ To keep long runs varied, microbes can arrive from the screen edges at random
 intervals. Mobile arrivals start fully offscreen, including their flagella,
 and gradually swim or drift across the boundary. Incoming immune cells and red
 blood cells use the same entry sequence; replacement phages drift in and settle.
-An obstructed arrival waits instead of jumping through a membrane. Normal
+An obstructed arrival briefly waits, then steers around the obstacle. If it cannot
+enter, it withdraws and tries another route only once entirely offscreen. A body
+in clear fluid resumes normal behavior even if its trailing flagellum is still
+crossing the edge. Normal
 behavior begins after the entity has entered, and resizing preserves the entry
 path. Offspring still form at their parent's location.
 When the population is below its target, arrivals replenish it.
@@ -150,7 +153,10 @@ microbe can gradually leave through an edge to make room.
 
 Fungal spores can independently arrive after a quiet interval, including when
 no fungal network remains. Immune cells and red blood cells can also arrive
-occasionally when their population limits leave room. Phages retain their
+occasionally when their population limits leave room. If an immune kind stays
+absent, a duplicate immune cell can leave through an edge to make room for it;
+division briefly yields the free slot to the replacement. This is controlled
+visual turnover, not a literal model of immune-cell lifetimes. Phages retain their
 replacement mechanism after local extinction. Missing types need not all be
 present at once, and every arrival respects the slide's size limits.
 Press `s` to see arrivals and counts of feeding, fungal-following, and escaping

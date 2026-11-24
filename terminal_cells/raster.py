@@ -381,9 +381,19 @@ def phage(field, obj, empty=False):
         field.line(*point(1.1, 0), *point(1.4, side * 0.65), 13, Ink.PHAGE)
 
 
-def render(world, options):
+def supported(options):
     caps = options.capabilities
-    if not options.fill or caps is None or caps.colors < 256 or not caps.blocks:
+    return bool(
+        options.fill
+        and caps is not None
+        and caps.colors >= 256
+        and caps.blocks
+        and caps.color_pairs > len(Ink) + len(COLORS) ** 2
+    )
+
+
+def render(world, options):
+    if not supported(options):
         return classic_render(world, options.unicode, options.fill)
     grid = CURRENT.get()
     field = Field(

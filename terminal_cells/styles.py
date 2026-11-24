@@ -139,6 +139,13 @@ STYLES: Mapping[str, PresentationStyle] = MappingProxyType(
 DEFAULT_STYLE = "classic"
 
 
+def effective_style(style: PresentationStyle, options: RenderOptions) -> PresentationStyle:
+    """Resolve artwork and UI metadata together, including runtime fallbacks."""
+    if style.name == "raster" and not raster.supported(options):
+        return STYLES["classic"]
+    return style
+
+
 def get_style(name: str = DEFAULT_STYLE) -> PresentationStyle:
     """Resolve a built-in style; unknown names raise ValueError."""
     try:

@@ -6,7 +6,7 @@ import math
 import pickle
 import unittest
 
-from terminal_cells import Bacterium, Phage, World
+from terminal_cells import Bacterium, Hypha, Phage, World
 from terminal_cells.capabilities import RenderCapabilities
 from terminal_cells.cli import main
 from terminal_cells.frame import Ink
@@ -93,6 +93,60 @@ class ViewportTests(unittest.TestCase):
         interaction.tool = 3
         interaction.click(world, 49, 15, 0)
         self.assertEqual((world.lab.stirs[-1].x, world.lab.stirs[-1].y), expected)
+
+    def test_visible_fungal_strokes_can_be_clicked_at_every_scale(self):
+        world = specimen()
+        world.bacteria.clear()
+        world.hyphae = [Hypha([(20, 22), (40, 22)], [(0, 1)], [], 999)]
+        for name in MAGNIFICATIONS:
+            camera = Camera(80, 24, name, 30, 22)
+            frame = camera.render(STYLES["classic"], world, RenderOptions())
+            strokes = [
+                (x, y)
+                for y, row in enumerate(frame.pixels)
+                for x, p in enumerate(row)
+                if p.ink is Ink.FUNGUS and p.char != " "
+            ]
+            self.assertTrue(strokes)
+            for point in strokes:
+                target = hit_test(world, *point, grid=camera.grid(world))
+                self.assertIsNotNone(target, (name, point))
+                self.assertIs(target.obj, world.hyphae[0])
+
+    def test_tab_finds_visible_parts_of_a_long_fungus(self):
+        world = specimen()
+        world.bacteria.clear()
+        world.hyphae = [Hypha([(0, 22), (10, 22), (90, 22)], [(0, 1), (1, 2)], [], 999)]
+        camera = Camera(80, 24, "detail", 75, 22)
+        control = Interaction(40, 12, camera=camera)
+        control.cycle(world)
+        self.assertIsNotNone(control.selected)
+        self.assertIs(control.selected.obj, world.hyphae[0])
+        self.assertEqual(control.selected.segment, (1, 2))
+        self.assertTrue(0 <= control.col < 80)
+        x = camera.grid(world).left - 0.1 / camera.scale
+        world.hyphae = [Hypha([(x, 20), (x, 24)], [(0, 1)], [], 999)]
+        control.cycle(world)
+        self.assertIsNotNone(control.selected, "a stroke rounded onto the border is visible")
+        self.assertEqual(control.col, 0)
+
+    def test_panning_clears_an_invisible_selection_before_lysing(self):
+        world = specimen()
+        camera = Camera(80, 24, "detail", 50, 40)
+        control = Interaction(40, 12, camera=camera)
+        control.click(world, 40, 12, 0)
+        for _ in range(30):
+            camera.pan(world, 1, 0)
+        control.follow(world)
+        x, y = camera.grid(world).world(control.col, control.row)
+        world.bacteria[1] = Bacterium(1, x, y, 0, 0, "rod", math.inf, math.inf)
+        control.tool = 1
+        control.apply(world, 1)
+        self.assertEqual(set(world.bacteria), {0, 1}, "do not silently switch destructive targets")
+        self.assertFalse(control.tracking)
+        self.assertIsNone(control.selected)
+        control.click(world, control.col, control.row, 2)
+        self.assertEqual(set(world.bacteria), {0}, "an explicit visible click still applies")
 
     def test_phage_selection_handles_subpixel_world_positions_at_detail_scale(self):
         world = specimen()

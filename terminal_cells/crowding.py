@@ -29,8 +29,22 @@ def budget(world):
     return world.width * world.height * min(0.5, 0.16 * world.density)
 
 
-def has_room(world, microbe):
-    return occupied(world) + area(microbe.kind, microbe.units) <= budget(world)
+def has_room(world, microbe, *, reproduction=False):
+    used = occupied(world)
+    if reproduction:
+        # Replace the growing parent's footprint with the completed pair. A bud
+        # is already part of occupied(); it must not reserve a daughter twice.
+        used -= area(microbe.kind, microbe.units, microbe.bud, bacterial_scale(microbe))
+        units = microbe.units
+        scale = bacterial_scale(microbe)
+        if MICROBES[microbe.kind].reproduction == "segmented":
+            if units < 5:
+                return used + area(microbe.kind, units + 1, scale=scale) <= budget(world)
+            return used + area(microbe.kind, units // 2) + area(
+                microbe.kind, units - units // 2, scale=scale
+            ) <= budget(world)
+        used += area(microbe.kind, units, scale=scale)
+    return used + area(microbe.kind, microbe.units) <= budget(world)
 
 
 def support(obj, angle):

@@ -10,13 +10,20 @@ concurrency:
   cancel-in-progress: false
 jobs:
   endurance:
-    name: Endurance / ${{ matrix.scene }}
+    name: Endurance / ${{ matrix.profile }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        scene: [mixed, blood, microbial]
+        include:
+          - {profile: mixed-resize, scene: mixed, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
+          - {profile: blood-resize, scene: blood, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
+          - {profile: microbial-resize, scene: microbial, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
+          - {profile: compact-seed0, scene: mixed, seed: 0, size: 80x24, magnification: normal, style: classic, steps: 27000, fixed: '--fixed-size'}
+          - {profile: compact-seed42, scene: mixed, seed: 42, size: 80x24, magnification: normal, style: classic, steps: 27000, fixed: '--fixed-size'}
+          - {profile: overview, scene: mixed, seed: 0, size: 80x24, magnification: overview, style: classic, steps: 27000, fixed: '--fixed-size'}
+          - {profile: raster-detail, scene: mixed, seed: 42, size: 80x24, magnification: detail, style: raster, steps: 27000, fixed: '--fixed-size'}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -29,13 +36,22 @@ jobs:
         env:
           CELLS_EXTENDED_TESTS: '1'
         run: python -m unittest discover -s tests -p test_properties.py -v
-      - name: One simulated hour with memory, population, and latency checks
+      - name: Check memory, latency, lifecycle progress, and diversity
         env:
           SCENE: ${{ matrix.scene }}
-        run: python tools/endurance.py --steps 108000 --scene "$SCENE"
+          SEED: ${{ matrix.seed }}
+          SIZE: ${{ matrix.size }}
+          MAGNIFICATION: ${{ matrix.magnification }}
+          STYLE: ${{ matrix.style }}
+          STEPS: ${{ matrix.steps }}
+          FIXED: ${{ matrix.fixed }}
+        run: |
+          fixed_args=()
+          if [[ -n "$FIXED" ]]; then fixed_args+=(--fixed-size); fi
+          python tools/endurance.py --steps "$STEPS" --scene "$SCENE" --seed "$SEED" --size "$SIZE" --magnification "$MAGNIFICATION" --style "$STYLE" "${fixed_args[@]}"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
-          name: endurance-${{ matrix.scene }}
+          name: endurance-${{ matrix.profile }}
           path: endurance.json
           if-no-files-found: warn

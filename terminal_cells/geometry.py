@@ -124,6 +124,7 @@ class Target:
     kind: str
     obj: object
     segment: tuple[int, int] | None = None
+    fraction: float = 0.5
 
     def alive(self, world):
         pools = {
@@ -144,7 +145,7 @@ class Target:
     def center(self):
         if self.kind == "hypha":
             a, b = (self.obj.nodes[i] for i in self.segment)
-            return (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+            return tuple(a[i] + (b[i] - a[i]) * self.fraction for i in (0, 1))
         return self.obj.x, self.obj.y
 
     @property
@@ -158,16 +159,37 @@ class Target:
         return {"phage": 1.5, "rotifer": 14, "food": 5, "hypha": 2}[self.kind]
 
 
-def targets(world):
+def targets(world, *, grid=None):
     result = [Target("cell", obj) for obj in world.cells]
     result += [Target("microbe", obj) for obj in world.bacteria.values()]
     result += [Target("red", obj) for obj in world.red_cells]
     result += [Target("phage", obj) for obj in world.phages.values()]
-    result += [Target("hypha", obj, obj.edges[0]) for obj in world.hyphae if obj.edges]
+    for obj in world.hyphae:
+        if not obj.edges:
+            continue
+        if grid is None or grid.columns is None or grid.rows is None:
+            result.append(Target("hypha", obj, obj.edges[0]))
+            continue
+        visible = [
+            ((col - grid.columns / 2) ** 2 + (row - grid.rows / 2) ** 2, edge, col, row)
+            for edge in obj.edges
+            for col, row in line_pixels(*obj.nodes[edge[0]], *obj.nodes[edge[1]], grid=grid)
+            if 0 <= col < grid.columns and 0 <= row < grid.rows - 1
+        ]
+        if visible:
+            _, edge, col, row = min(visible)
+            result.append(Target("hypha", obj, edge, segment_fraction(obj, edge, grid, col, row)))
     result += [Target("food", obj) for obj in world.nutrients]
     if world.events.active is not None and world.events.active.kind == "rotifer":
         result.append(Target("rotifer", world.events.active))
     return result
+
+
+def segment_fraction(obj, edge, grid, col, row):
+    a, b = (obj.nodes[i] for i in edge)
+    ax, ay = grid.column(a[0]), grid.row(a[1])
+    dx, dy = grid.column(b[0]) - ax, grid.row(b[1]) - ay
+    return max(0, min(1, ((col - ax) * dx + (row - ay) * dy) / max(1e-9, dx * dx + dy * dy)))
 
 
 def hit_test(world, col: int, row: int, *, grid=None):
@@ -219,11 +241,20 @@ def _hit_test(world, col, row, grid):
             else:
                 inside = (col, row) == grid.point(obj.x, obj.y)
         elif target.kind == "hypha":
-            edges = sorted(
-                obj.edges, key=lambda edge: segment_distance(x, y, *(obj.nodes[i] for i in edge))
-            )
+
+            def screen_distance(edge):
+                a, b = (obj.nodes[i] for i in edge)
+                return segment_distance(
+                    col,
+                    row,
+                    (grid.column(a[0]), grid.row(a[1])),
+                    (grid.column(b[0]), grid.row(b[1])),
+                )
+
+            edges = sorted(obj.edges, key=screen_distance)
             target.segment = edges[0]
-            inside = segment_distance(x, y, *(obj.nodes[i] for i in target.segment)) <= 1
+            target.fraction = segment_fraction(obj, target.segment, grid, col, row)
+            inside = screen_distance(target.segment) <= 0.75
         elif target.kind == "rotifer":
             ux, uy = math.cos(obj.angle), math.sin(obj.angle)
             along, across = dx * ux + dy * uy, -dx * uy + dy * ux

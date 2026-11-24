@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from terminal_cells.capabilities import RenderCapabilities  # noqa: E402
 from terminal_cells.frame import Ink, PALETTES  # noqa: E402
 from terminal_cells.scenes import SCENES, make_scene  # noqa: E402
+from terminal_cells.viewport import Camera, MAGNIFICATIONS  # noqa: E402
 from terminal_cells.styles import STYLES, RenderOptions, get_style  # noqa: E402
 from terminal_cells.style_checks import check_style  # noqa: E402
 from tools.preview import xterm_hex  # noqa: E402
@@ -22,7 +23,7 @@ def svg(panels, theme, palettes=None):
     background = "#ffffff" if theme == "light" else "#10171d"
     colors = {ink: xterm_hex(value[0]) for ink, value in zip(Ink, PALETTES[theme])}
     lines = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" shape-rendering="crispEdges">',
         "<title>Cells presentation comparison</title>",
         f'<rect width="100%" height="100%" fill="{background}"/>',
         '<g font-family="DejaVu Sans Mono,monospace" font-size="14" xml:space="preserve">',
@@ -71,6 +72,12 @@ def main(argv=None):
     parser.add_argument(
         "--at", type=float, help="simulated seconds, 0..60; defaults to scene sample times"
     )
+    parser.add_argument(
+        "--magnification",
+        choices=tuple(MAGNIFICATIONS),
+        action="append",
+        help="repeat to compare optical scales",
+    )
     parser.add_argument("--ascii", action="store_true")
     parser.add_argument("--fill", action="store_true")
     parser.add_argument("--theme", choices=PALETTES, default="slide")
@@ -99,10 +106,13 @@ def main(argv=None):
                 parser.error(str(error))
             style = get_style(name)
             options = RenderOptions.resolve(caps, fill=args.fill or style.default_fill)
-            frame = check_style(style, world, options)
-            palettes.append(style.palette(args.theme))
-            label = f"{args.scene} / {name} / seed {args.seed} / {world.time:.3f}s / {frame.width}x{frame.height}"
-            panels.append((label, frame))
+            for magnification in args.magnification or ("normal",):
+                camera = Camera(100, 40, magnification)
+                camera.focus(world)
+                frame = check_style(style, world, options, camera=camera)
+                palettes.append(style.palette(args.theme))
+                label = f"{args.scene} / {name} / {magnification} / seed {args.seed} / {world.time:.3f}s / {frame.width}x{frame.height}"
+                panels.append((label, frame))
     content = (
         "\n\n".join(label + "\n" + frame.plain() for label, frame in panels) + "\n"
         if plain

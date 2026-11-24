@@ -33,6 +33,7 @@ SCENES = MappingProxyType(
         "blood-smear": SceneSpec(
             "Reference-like blood smear with a neutrophil and red cells", (0, 12)
         ),
+        "complement": SceneSpec("Coating, selective pores, and decay", (0, 6, 12, 17, 19, 32)),
         "division": SceneSpec(
             "Nuclear organization through daughter separation", (0, 9, 22, 30, 37, 46, 51)
         ),
@@ -46,6 +47,10 @@ SCENES = MappingProxyType(
         "crowding": SceneSpec("A dense seeded community", (0, 12)),
     }
 )
+
+
+def still_current(x, y):
+    return 0, 0
 
 
 def make_scene(name: str, *, seed: int = 42, at: float = 0) -> World:
@@ -66,6 +71,7 @@ def make_scene(name: str, *, seed: int = 42, at: float = 0) -> World:
         scene="blood" if name == "blood-smear" else "mixed",
         rare_events=False,
         microscope_events=False,
+        complement=False,
     )
     if name == "blood-smear":
         world.cells = [
@@ -111,7 +117,18 @@ def make_scene(name: str, *, seed: int = 42, at: float = 0) -> World:
             pool.clear()
         world.replenish_at = world.phage_replenish_at = math.inf
         world.nutrient_at = world.fungal_arrival_at = world.large_arrival_at = math.inf
-        if name == "division":
+        if name == "complement":
+            world.current = still_current
+            world.complement.enabled = True
+            world.complement.next_at = math.inf
+            for ident, y in enumerate((26, 54)):
+                obj = Bacterium(
+                    ident, 45, y, 0, 0, "rod", math.inf, math.inf, complement_sensitive=ident == 0
+                )
+                world.bacteria[ident] = obj
+                world.complement.bind(world, obj)
+            world.next_id = 2
+        elif name == "division":
             world.cells = [
                 Cell(0, 50, 40, CELL_RADIUS, 0, 0, state=State.DIVIDE, divide_at=math.inf)
             ]

@@ -21,6 +21,7 @@ from .frame import FILL_INKS, Frame, Ink, PALETTES
 from .render import HELP_INKS, help_lines, overlay
 from .capabilities import RenderCapabilities
 from .styles import DEFAULT_STYLE, STYLES, RenderOptions, get_style
+from .viewport import Camera, MAGNIFICATIONS
 from . import __version__
 
 
@@ -215,16 +216,22 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
     except curses.error:
         pass
     rows, columns = screen.getmaxyx()
+    camera = Camera(columns, rows, args.magnification)
     world = World(
-        columns,
-        rows,
+        *camera.simulation_size(),
         args.seed,
         args.density,
         scene=args.scene,
         rare_events=not args.no_events,
         microscope_events=not args.calm,
+        complement=not args.no_complement,
     )
-    interaction = Interaction(columns // 2, rows // 2, mouse=mouse) if args.interactive else None
+    camera.focus(world)
+    interaction = (
+        Interaction(columns // 2, rows // 2, mouse=mouse, camera=camera)
+        if args.interactive
+        else None
+    )
     style = get_style(args.style)
     fill_requested = args.fill or style.default_fill
     renderer = TerminalRenderer(
@@ -236,7 +243,15 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
     help_content = help_lines(args.interactive, legend=style.legend)
     help_inks = HELP_INKS | (dict(style.legend) if style.legend is not None else {})
     notice, notice_until = "", 0.0
-    counters = (world.engulfed, world.divisions, world.infections, world.lysed, world.arrivals)
+    counters = (
+        world.engulfed,
+        world.divisions,
+        world.infections,
+        world.lysed,
+        world.arrivals,
+        world.complement.bindings,
+        world.complement.lysed,
+    )
     speed = args.speed
     last = time.monotonic()
     accumulator = 0.0
@@ -248,7 +263,9 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
         dimensions = screen.getmaxyx()
         if dimensions != (rows, columns):
             rows, columns = dimensions
-            world.resize(columns, rows)
+            camera.columns, camera.rows = columns, rows
+            world.resize(*camera.simulation_size())
+            camera.x = camera.y = None
         help_limit = max(0, len(help_content[2:]) - max(1, rows - 7))
         help_offset = min(help_offset, help_limit)
         # Drain queued input so rapid key presses remain responsive.
@@ -275,17 +292,19 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
             elif key in (ord("r"), ord("R")):
                 seed = (world.seed + 1) % (2**64)
                 world = World(
-                    columns,
-                    rows,
+                    *camera.simulation_size(),
                     seed,
                     args.density,
                     scene=args.scene,
                     rare_events=not args.no_events,
                     microscope_events=not args.calm,
+                    complement=not args.no_complement,
                 )
                 accumulator = 0
+                camera.x = camera.y = None
+                camera.focus(world)
                 if interaction is not None:
-                    interaction = Interaction(columns // 2, rows // 2, mouse=mouse)
+                    interaction = Interaction(columns // 2, rows // 2, mouse=mouse, camera=camera)
             elif key == ord("?"):
                 help_visible = not help_visible
             elif help_visible and key in (ord("j"), curses.KEY_DOWN, curses.KEY_NPAGE):
@@ -294,6 +313,12 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 help_offset = max(0, help_offset - 1)
             elif key in (ord("s"), ord("S")):
                 stats = not stats
+            elif not help_visible and key in (ord("H"), ord("J"), ord("K"), ord("L")):
+                dx, dy = {ord("H"): (-1, 0), ord("J"): (0, 1), ord("K"): (0, -1), ord("L"): (1, 0)}[
+                    key
+                ]
+                camera.pan(world, dx, dy)
+                renderer.previous = None
             elif key == 12:  # Ctrl-L
                 renderer.previous = None
             elif interaction is not None and not help_visible and columns >= 32 and rows >= 12:
@@ -306,7 +331,15 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
             accumulator += elapsed * speed
             accumulator = advance_frame(world, accumulator, events=False)
             world.advance_events(wall_elapsed)
-        current = (world.engulfed, world.divisions, world.infections, world.lysed, world.arrivals)
+        current = (
+            world.engulfed,
+            world.divisions,
+            world.infections,
+            world.lysed,
+            world.arrivals,
+            world.complement.bindings,
+            world.complement.lysed,
+        )
         if current != counters:
             events = [
                 label
@@ -317,6 +350,8 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                         "Phage infection: viral replication begins",
                         "Lysis: new phages released",
                         "New arrival from the slide edge",
+                        "Complement: surface coating aids immune recognition",
+                        "Complement membrane attack: bacterial lysis",
                     ),
                     counters,
                     current,
@@ -335,8 +370,8 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 notice, notice_until = " / ".join(dict.fromkeys(phases)), tick + 1
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
-        frame = style.render(
-            world, RenderOptions.resolve(renderer.capabilities(unicode), fill=fill_requested)
+        frame = camera.render(
+            style, world, RenderOptions.resolve(renderer.capabilities(unicode), fill=fill_requested)
         )
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
@@ -496,6 +531,12 @@ def parser() -> argparse.ArgumentParser:
         help="presentation style; stained and raster are experimental",
     )
     display.add_argument(
+        "--magnification",
+        choices=tuple(MAGNIFICATIONS),
+        default="normal",
+        help="overview, normal scale, or bacterial detail; H/J/K/L pan the view",
+    )
+    display.add_argument(
         "--theme",
         choices=PALETTES,
         default="slide",
@@ -531,6 +572,9 @@ def parser() -> argparse.ArgumentParser:
     )
     display.add_argument(
         "--observe", action="store_true", help="caption lifecycle stages and recent events"
+    )
+    display.add_argument(
+        "--no-complement", action="store_true", help="disable dissolved complement activity"
     )
     display.add_argument(
         "--no-events", action="store_true", help="disable rare visitors and microscope events"
@@ -596,6 +640,8 @@ def diagnostics(args) -> dict:
         "color_requested": use_color(args.color),
         "fill_requested": args.fill or get_style(args.style).default_fill,
         "style": args.style,
+        "magnification": args.magnification,
+        "complement_requested": not args.no_complement,
         "unicode_requested": use_unicode(args.unicode, sys.stdout.encoding),
         "note": "Capabilities are requested settings; actual colors depend on terminal support.",
     }
@@ -620,19 +666,23 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError
         except ValueError:
             cli.error("--size must be COLSxROWS, from 1x1 through 500x200")
+        camera = Camera(columns, rows, args.magnification)
         world = World(
-            columns,
-            rows,
+            *camera.simulation_size(),
             args.seed,
             args.density,
             scene=args.scene,
             rare_events=not args.no_events,
             microscope_events=not args.calm,
+            complement=not args.no_complement,
         )
         for _ in range(round(args.at / STEP)):
             world.update()
+        camera.focus(world)
         print(
-            get_style(args.style).render(world, RenderOptions.resolve(RenderCapabilities())).plain()
+            camera.render(
+                get_style(args.style), world, RenderOptions.resolve(RenderCapabilities())
+            ).plain()
         )
         return 0
     if not sys.stdin.isatty() or not sys.stdout.isatty():

@@ -74,56 +74,61 @@
 <text x="178" y="432" fill="#d700ff">\</text>
 <text x="187" y="432" fill="#d700ff">─</text>
 <text x="480" y="64" fill="#b8c5d0" font-size="12">Bacteria gather and feed</text>
-<text x="777" y="234" fill="#5f875f">·</text>
+<text x="777" y="234" fill="#00d7d7">│</text>
+<text x="786" y="234" fill="#00d7d7">─</text>
 <text x="750" y="252" fill="#5f875f">·</text>
-<text x="759" y="252" fill="#5f875f">·</text>
-<text x="705" y="270" fill="#ffd787">─</text>
-<text x="714" y="270" fill="#ffd787">─</text>
-<text x="723" y="270" fill="#5f875f">·</text>
+<text x="759" y="252" fill="#00d7d7">/</text>
+<text x="768" y="252" fill="#00d7d7">/</text>
+<text x="777" y="252" fill="#00d7d7">/</text>
+<text x="786" y="252" fill="#00d7d7">│</text>
+<text x="678" y="270" fill="#ffd787">─</text>
+<text x="687" y="270" fill="#ffd787">─</text>
+<text x="696" y="270" fill="#ffd787">─</text>
+<text x="705" y="270" fill="#ffd787">\</text>
+<text x="714" y="270" fill="#5f875f">·</text>
+<text x="723" y="270" fill="#ffd787" font-weight="bold">─</text>
 <text x="759" y="270" fill="#00d7d7">/</text>
-<text x="768" y="270" fill="#00d7d7">/</text>
+<text x="768" y="270" fill="#00d7d7">│</text>
 <text x="804" y="270" fill="#5f875f">·</text>
 <text x="813" y="270" fill="#5f875f">·</text>
 <text x="687" y="288" fill="#5f875f">·</text>
 <text x="696" y="288" fill="#5f875f">·</text>
-<text x="723" y="288" fill="#ffd787">\</text>
-<text x="732" y="288" fill="#ffd787" font-weight="bold">│</text>
-<text x="741" y="288" fill="#00d7d7">│</text>
-<text x="750" y="288" fill="#d700ff">│</text>
-<text x="759" y="288" fill="#d700ff">/</text>
-<text x="768" y="288" fill="#d700ff">─</text>
-<text x="777" y="288" fill="#d700ff">─</text>
-<text x="786" y="288" fill="#d700ff">─</text>
+<text x="705" y="288" fill="#ffd787">\</text>
+<text x="714" y="288" fill="#ffd787" font-weight="bold">│</text>
+<text x="732" y="288" fill="#bcbcbc" font-weight="bold">*</text>
+<text x="741" y="288" fill="#ffd787" font-weight="bold">─</text>
+<text x="750" y="288" fill="#bcbcbc" font-weight="bold">*</text>
+<text x="759" y="288" fill="#bcbcbc">:</text>
+<text x="768" y="288" fill="#00d7d7">│</text>
+<text x="777" y="288" fill="#5f875f">·</text>
+<text x="723" y="306" fill="#00d7d7">│</text>
 <text x="732" y="306" fill="#d700ff">─</text>
-<text x="741" y="306" fill="#00d7d7">\</text>
-<text x="750" y="306" fill="#bcbcbc">:</text>
+<text x="741" y="306" fill="#00d7d7">/</text>
+<text x="750" y="306" fill="#00d7d7">/</text>
 <text x="759" y="306" fill="#d700ff">│</text>
-<text x="768" y="306" fill="#ffd787" font-weight="bold">\</text>
-<text x="777" y="306" fill="#ffd787" font-weight="bold">│</text>
 <text x="822" y="306" fill="#5f875f">·</text>
 <text x="705" y="324" fill="#5f875f">·</text>
 <text x="714" y="324" fill="#5f875f">·</text>
 <text x="723" y="324" fill="#d700ff">│</text>
-<text x="732" y="324" fill="#bcbcbc" font-weight="bold">*</text>
 <text x="741" y="324" fill="#d700ff">─</text>
 <text x="750" y="324" fill="#d700ff">─</text>
-<text x="759" y="324" fill="#00d7d7">│</text>
-<text x="768" y="324" fill="#ffd787" font-weight="bold">/</text>
-<text x="777" y="324" fill="#ffd787" font-weight="bold">│</text>
 <text x="795" y="324" fill="#5f875f">·</text>
 <text x="804" y="324" fill="#5f875f">·</text>
 <text x="687" y="342" fill="#5f875f">·</text>
-<text x="696" y="342" fill="#d700ff">─</text>
 <text x="705" y="342" fill="#d700ff">─</text>
 <text x="714" y="342" fill="#d700ff">─</text>
-<text x="741" y="342" fill="#00d7d7">│</text>
-<text x="750" y="342" fill="#00d7d7">\</text>
+<text x="723" y="342" fill="#d700ff">─</text>
+<text x="732" y="342" fill="#d700ff">─</text>
 <text x="759" y="342" fill="#5f875f">·</text>
 <text x="768" y="342" fill="#5f875f">·</text>
-<text x="687" y="360" fill="#d700ff">/</text>
+<text x="696" y="360" fill="#d700ff">│</text>
 <text x="732" y="360" fill="#5f875f">·</text>
 <text x="741" y="360" fill="#5f875f">·</text>
-<text x="750" y="360" fill="#00d7d7">/</text>
+<text x="678" y="378" fill="#d700ff">─</text>
+<text x="687" y="378" fill="#d700ff">─</text>
+<text x="696" y="378" fill="#d700ff">─</text>
+<text x="705" y="378" fill="#d700ff">│</text>
+<text x="669" y="396" fill="#d700ff">/</text>
 <text x="944" y="64" fill="#b8c5d0" font-size="12">Swimmers follow fungal branches</text>
 <text x="1286" y="234" fill="#878700">o</text>
 <text x="1268" y="252" fill="#878700">/</text>

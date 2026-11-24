@@ -18,7 +18,10 @@ ambient mode keeps its original controls and does not capture the mouse.
 | `3` | Feed | Place a nutrient droplet in clear fluid outside membranes |
 | `4` | Stir | Apply a brief, local swirling current |
 
-Use arrows or `h`/`j`/`k`/`l` to move the small corner reticle. `Tab` cycles visible
+Use arrows or `h`/`j`/`k`/`l` to move the small corner reticle.
+With `--magnification detail`, uppercase H/J/K/L pan the camera; lowercase
+movement still aims the reticle. Clicking, selection, feeding, and currents map
+back to specimen coordinates. The toolbar remains protected at every scale. `Tab` cycles visible
 entities and follows the selection as it moves. `Enter` applies the active tool.
 Selection brackets mark the chosen entity without recoloring it. The aiming
 reticle leaves the glyph under it visible. Clicking the toolbar never acts on
@@ -78,7 +81,7 @@ readable.
 
 Stir immediately displaces nearby free particles, including the object directly
 under the cursor, then sustains a swirling current for four simulation seconds.
-The current reaches 24 world units (24 columns or 12 rows) from the click. It
+The current reaches 24 world units (24 columns or 12 rows at normal magnification) from the click. It
 moves free swimmers, red blood cells, debris, phages, spent capsids, and released
 organelle fragments; large immune cells respond more gently. Existing membrane collision rules remain active. Stirring does not
 teleport particles through a cell or detach sealed cargo.

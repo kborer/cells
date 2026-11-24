@@ -50,6 +50,7 @@ slide, and **?** for help and the species legend.
 ```sh
 cells --scene microbial --observe  # Microbes, with lifecycle captions
 cells --scene blood               # A blood-inspired community
+cells --magnification detail      # Bacterial close-up; H/J/K/L pan
 cells --calm --theme light        # Slower movement on a light background
 cells --style stained --theme light  # Filled cells with classic glyph artwork
 cells --style raster              # Experimental shaded whole-specimen rendering
@@ -59,7 +60,8 @@ cells --screensaver              # Exit on any key
 
 Macrophages, neutrophils, red blood cells, nine microbial forms, fungi, and phages
 share the slide. Watch engulfment, mitosis, budding, viral replication, and rare
-visitors. Periodic arrivals keep populations varied during long runs.
+visitors. Complement can coat bacteria for recognition or damage susceptible
+membranes. Footprint-aware growth and periodic arrivals keep long runs varied.
 
 ```sh
 cells --interactive

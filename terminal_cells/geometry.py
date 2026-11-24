@@ -9,8 +9,8 @@ import math
 
 from .events import segment_distance
 from .frame import line_pixels
+from .viewport import CURRENT, Grid, projection
 from .models import (
-    ASPECT,
     State,
     bacterial_scale,
     disc_axes,
@@ -32,7 +32,7 @@ def nuclear_bodies(cell):
     are exclusive, so the capture-selection tie-break only needs intact nuclei.
     """
     if cell.kind == "neutrophil":
-        cx, cy = round(cell.x), round(cell.y / ASPECT) * ASPECT
+        cx, cy = CURRENT.get().snap(cell.x, cell.y)
         for x, y in (
             (cx - cell.radius * 0.28, cy - 2),
             (cx, cy + 2),
@@ -51,7 +51,8 @@ def nuclear_bodies(cell):
 def nuclear_mask(radius: float):
     """Raster offsets for an intact nucleus, anchored to one terminal cell."""
     rx, ry = nucleus_radii(radius)
-    rx, rows = max(2, round(rx)), max(1, round(ry / ASPECT))
+    scale = CURRENT.get().scale
+    rx, rows = max(2, round(rx * scale)), max(1, round(ry * scale / CURRENT.get().aspect))
     return frozenset(
         (col, row)
         for row in range(-rows, rows + 1)
@@ -63,7 +64,8 @@ def nuclear_mask(radius: float):
 def nuclear_contains(cell, col: int, row: int) -> bool:
     bodies = list(nuclear_bodies(cell))
     if any(
-        (col - round(x), row - round(y / ASPECT)) in nuclear_mask(radius)
+        (col - CURRENT.get().point(x, y)[0], row - CURRENT.get().point(x, y)[1])
+        in nuclear_mask(radius)
         for x, y, radius, _ in bodies
     ):
         return True
@@ -168,9 +170,15 @@ def targets(world):
     return result
 
 
-def hit_test(world, col: int, row: int):
-    """Pick the visible body under a terminal cell; never pick a distant neighbor."""
-    x, y = col, row * ASPECT
+def hit_test(world, col: int, row: int, *, grid=None):
+    """Pick a body in screen coordinates, optionally through a camera projection."""
+    grid = Grid() if grid is None else grid
+    with projection(grid):
+        return _hit_test(world, col, row, grid)
+
+
+def _hit_test(world, col, row, grid):
+    x, y = grid.world(col, row)
     hits = []
     for order, target in enumerate(targets(world)):
         obj = target.obj
@@ -187,7 +195,7 @@ def hit_test(world, col: int, row: int):
         }[target.kind]
         distance = math.hypot(dx, dy)
         if target.kind == "cell":
-            inside = cell_contains(obj, x, y, world.time, padding=0.6)
+            inside = cell_contains(obj, x, y, world.time, padding=0.6 / grid.scale)
             order = obj.radius  # Large cells are painted over small cells.
         elif target.kind == "microbe":
             owner = next((c for c in world.cells if c.id == obj.owner), None)
@@ -196,20 +204,20 @@ def hit_test(world, col: int, row: int):
             a, b = microbe_axes(obj)
             scale = bacterial_scale(obj)
             ux, uy = math.cos(obj.angle), math.sin(obj.angle)
-            inside = ((dx * ux + dy * uy) / (a * scale + 0.6)) ** 2 + (
-                (-dx * uy + dy * ux) / (b * scale + 0.8)
+            inside = ((dx * ux + dy * uy) / (a * scale + 0.6 / grid.scale)) ** 2 + (
+                (-dx * uy + dy * ux) / (b * scale + 0.8 / grid.scale)
             ) ** 2 <= 1
         elif target.kind == "red":
             a, b = disc_axes(obj)
-            inside = (dx / (a + 0.5)) ** 2 + (dy / (b + 0.8)) ** 2 <= 1
+            inside = (dx / (a + 0.5 / grid.scale)) ** 2 + (dy / (b + 0.8 / grid.scale)) ** 2 <= 1
         elif target.kind == "phage":
-            if abs(math.cos(obj.angle)) > abs(math.sin(obj.angle)):
-                inside = row == round(obj.y / ASPECT) and col in (
-                    round(obj.x - 0.5),
-                    round(obj.x - 0.5) + 1,
-                )
+            if grid.scale >= 2:
+                inside = distance <= 1.5 + 0.5 / grid.scale
+            elif abs(math.cos(obj.angle)) > abs(math.sin(obj.angle)):
+                cx, cy = grid.point(obj.x - 0.5, obj.y)
+                inside = row == cy and col in (cx, cx + 1)
             else:
-                inside = (col, row) == (round(obj.x), round(obj.y / ASPECT))
+                inside = (col, row) == grid.point(obj.x, obj.y)
         elif target.kind == "hypha":
             edges = sorted(
                 obj.edges, key=lambda edge: segment_distance(x, y, *(obj.nodes[i] for i in edge))

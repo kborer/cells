@@ -11,10 +11,10 @@ from functools import lru_cache
 import math
 
 from .catalog import MICROBES
+from .crowding import tail_fraction
 from .frame import Frame, Ink
 from .geometry import nuclear_bodies
 from .models import (
-    ASPECT,
     DIVISION_TIME,
     SEAL_TIME,
     State,
@@ -27,6 +27,7 @@ from .models import (
 )
 from .render import render as classic_render
 from .stained import grain
+from .viewport import CURRENT
 
 # Paper; three eosin reds; gray/lavender cytoplasm; purple chromatin;
 # pale cytoplasm; three microbial greens; neutral glass/flagella.
@@ -52,7 +53,7 @@ PATTERNS = (
     (255, "█"),
 )
 # Keep explanatory lifecycle marks, while normal anatomy is drawn as pigment.
-MARKS = frozenset((Ink.DNA, Ink.SPINDLE, Ink.CAPTURE, Ink.VIRAL_DNA, Ink.LYSIS))
+MARKS = frozenset((Ink.DNA, Ink.SPINDLE, Ink.CAPTURE, Ink.VIRAL_DNA, Ink.LYSIS, Ink.COMPLEMENT))
 EFFECTS = frozenset((Ink.NET, Ink.ROTIFER, Ink.GLASS))
 ROLE_COLOR = {
     Ink.DNA: 8,
@@ -60,6 +61,7 @@ ROLE_COLOR = {
     Ink.CAPTURE: 3,
     Ink.VIRAL_DNA: 10,
     Ink.LYSIS: 6,
+    Ink.COMPLEMENT: 13,
     Ink.NET: 6,
     Ink.ROTIFER: 3,
     Ink.GLASS: 13,
@@ -108,24 +110,25 @@ class Field:
     """Per-frame pigment samples; all painting uses specimen coordinates."""
 
     def __init__(self, columns, rows):
+        self.grid = CURRENT.get()
         self.width, self.height = columns * 2, rows * 4
         self.colors = array("B", [0]) * (self.width * self.height)
         self.roles = array("B", [Ink.DEBRIS.value]) * len(self.colors)
 
     def paint(self, x, y, extent_x, extent_y, shade, role):
         left, right = (
-            max(0, math.floor((x - extent_x + 0.5) * 2)),
-            min(self.width, math.ceil((x + extent_x + 0.5) * 2)),
+            max(0, math.floor((self.grid.column(x - extent_x) + 0.5) * 2)),
+            min(self.width, math.ceil((self.grid.column(x + extent_x) + 0.5) * 2)),
         )
         top, bottom = (
-            max(0, math.floor((y - extent_y + 1) * 2)),
-            min(self.height, math.ceil((y + extent_y + 1) * 2)),
+            max(0, math.floor((self.grid.row(y - extent_y) + 0.5) * 4)),
+            min(self.height, math.ceil((self.grid.row(y + extent_y) + 0.5) * 4)),
         )
         for py in range(top, bottom):
-            dy = (py + 0.5) / 2 - 1 - y
+            dy = self.grid.world(0, (py + 0.5) / 4 - 0.5)[1] - y
             base = py * self.width
             for px in range(left, right):
-                dx = (px + 0.5) / 2 - 0.5 - x
+                dx = self.grid.world((px + 0.5) / 2 - 0.5, 0)[0] - x
                 color = shade(dx, dy)
                 if color is not None:
                     self.colors[base + px] = color
@@ -161,18 +164,22 @@ class Field:
 
     def line(self, x, y, xx, yy, color, role, keep=None):
         # Round caps make organelle tubules and flagella continuous under motion.
-        count = max(1, math.ceil(math.hypot(xx - x, yy - y) * 2))
+        count = max(1, math.ceil(math.hypot(xx - x, yy - y) * 2 * self.grid.scale))
         for step in range(count + 1):
             wx, wy = x + (xx - x) * step / count, y + (yy - y) * step / count
             if keep is not None and not keep(wx, wy):
                 continue
-            px, py = round((wx + 0.5) * 2 - 0.5), round((wy + 1) * 2 - 0.5)
+            px, py = (
+                round((self.grid.column(wx) + 0.5) * 2 - 0.5),
+                round((self.grid.row(wy) + 0.5) * 4 - 0.5),
+            )
             if 0 <= px < self.width and 0 <= py < self.height:
                 self.colors[py * self.width + px] = color
                 self.roles[py * self.width + px] = role.value
 
     def frame(self):
         frame = Frame(self.width // 2, self.height // 4, fill=True)
+        frame.grid = self.grid
         for row in range(frame.height):
             for col in range(frame.width):
                 samples = tuple(
@@ -235,12 +242,21 @@ def microbe(field, world, obj, compact=False):
             body(a + obj.bud, 0, 0.5 + 2 * obj.bud)
     if MICROBES[obj.kind].flagellum and not compact:
         previous = point(-a, 0)
+        tail = tail_fraction(world, obj)
         for i in range(1, 17):
             t = i / 16
-            pos = point(-a - 5 * t, t * math.sin(8 * t - world.time * 7 + obj.id))
+            pos = point(-a - 5 * t * tail, t * tail * math.sin(8 * t - world.time * 7 + obj.id))
             if world.is_blocked(*pos, padding=1.1):
                 break
             field.line(*previous, *pos, 10, Ink.BACTERIA)
+            previous = pos
+    if field.grid.scale >= 2 and obj.infection is None and not compact:
+        previous = None
+        for i in range(9):
+            along = (i / 8 - 0.5) * a
+            pos = point(along, math.sin(i * 1.5) * b * 0.25)
+            if previous is not None:
+                field.line(*previous, *pos, 6, Ink.MICROBIAL_DNA)
             previous = pos
     if obj.infection:
         field.ellipse(obj.x, obj.y, 0.7, 0.7, "nucleus", role=Ink.VIRAL_DNA)
@@ -369,7 +385,10 @@ def render(world, options):
     caps = options.capabilities
     if not options.fill or caps is None or caps.colors < 256 or not caps.blocks:
         return classic_render(world, options.unicode, options.fill)
-    field = Field(round(world.width), round(world.height / ASPECT))
+    grid = CURRENT.get()
+    field = Field(
+        grid.columns or round(world.width), grid.rows or round(world.height / grid.aspect)
+    )
     source = classic_render(world, True, True)
     for patch in world.nutrients:
         field.ellipse(
@@ -414,7 +433,7 @@ def render(world, options):
         for col, pixel in enumerate(pixels):
             if pixel.char != " " and pixel.ink in EFFECTS:
                 color = ROLE_COLOR[pixel.ink]
-                x, y = col, row * ASPECT
+                x, y = grid.world(col, row)
                 dx, dy = (
                     (0.45, 0.8)
                     if pixel.char in ("/", "\\")
@@ -463,7 +482,8 @@ def render(world, options):
         for obj in infected:
             a, b = microbe_axes(obj)
             scale = bacterial_scale(obj)
-            dx, dy = col - obj.x, row * ASPECT - obj.y
+            wx, wy = grid.world(col, row)
+            dx, dy = wx - obj.x, wy - obj.y
             ca, sa = math.cos(obj.angle), math.sin(obj.angle)
             if ((dx * ca + dy * sa) / (a * scale + 1)) ** 2 + (
                 (-dx * sa + dy * ca) / (b * scale + 1)

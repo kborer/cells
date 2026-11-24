@@ -36,6 +36,10 @@ slower motion, lower FPS, and no micropipette; explicit speed/fps win
 presentation style; stained and raster are experimental
 Choices: classic, stained, raster.
 .TP
+.B \-\-magnification MAGNIFICATION
+overview, normal scale, or bacterial detail; H/J/K/L pan the view
+Choices: overview, normal, detail.
+.TP
 .B \-\-theme THEME
 color palette; light suits white backgrounds
 Choices: slide, amber, light, mono.
@@ -59,6 +63,9 @@ show population and lifecycle statistics at startup
 .TP
 .B \-\-observe
 caption lifecycle stages and recent events
+.TP
+.B \-\-no\-complement
+disable dissolved complement activity
 .TP
 .B \-\-no\-events
 disable rare visitors and microscope events
@@ -89,7 +96,8 @@ show program's version number and exit
 .SH CONTROLS
 q/Escape quits; Space pauses; +/\- changes speed; r resets the slide;
 s toggles statistics; ? toggles help; j/k or arrows scroll help;
-Ctrl-L redraws. Screensaver mode exits on any key except resize.
+H/J/K/L pans the magnified view; Ctrl-L redraws.
+Screensaver mode exits on any key except resize.
 With interactive mode: 1 Inspect, 2 Lyse, 3 Feed, 4 Stir; left-click or
 Enter applies. Arrows/hjkl aim; Tab selects and follows an entity.
 .SH ENVIRONMENT

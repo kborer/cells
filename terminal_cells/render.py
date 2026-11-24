@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from .models import (
-    ASPECT,
     Bacterium,
     Cell,
     DIVISION_TIME,
@@ -26,6 +25,8 @@ from .models import (
     viral_stage,
 )
 from .world import World
+from .crowding import tail_fraction
+from .viewport import CURRENT
 from .catalog import MICROBES
 from .geometry import nuclear_bodies, nuclear_mask
 
@@ -67,7 +68,7 @@ def contour_pixels(points):
     """Keep an eight-connected, single-stroke path through sampled curves."""
     sampled = []
     for x, y, angle in points:
-        pixel = round(x), round(y / ASPECT), angle
+        pixel = (*CURRENT.get().point(x, y), angle)
         if not sampled or pixel[:2] != sampled[-1][:2]:
             sampled.append(pixel)
     if not sampled:
@@ -93,13 +94,18 @@ def contour_pixels(points):
 
 def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: bool = True) -> None:
     extent = cell.extent()
-    left, right = max(0, int(cell.x - extent)), min(frame.width, math.ceil(cell.x + extent))
-    top = max(0, int((cell.y - extent) / ASPECT))
-    bottom = min(frame.height, math.ceil((cell.y + extent) / ASPECT))
+    grid = frame.grid
+    left, right = (
+        max(0, int(grid.column(cell.x - extent))),
+        min(frame.width, math.ceil(grid.column(cell.x + extent))),
+    )
+    top = max(0, int(grid.row(cell.y - extent)))
+    bottom = min(frame.height, math.ceil(grid.row(cell.y + extent)))
     body = set()
     for row in range(top, bottom):
         for col in range(left, right):
-            dx, dy = col - cell.x, row * ASPECT - cell.y
+            wx, wy = frame.grid.world(col, row)
+            dx, dy = wx - cell.x, wy - cell.y
             angle = math.atan2(dy, dx)
             body_radius = cell.body_outline(angle, now)
             radius = cell.outline(angle, now) if cell.state is State.ENCLOSE else body_radius
@@ -111,7 +117,9 @@ def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: b
             if distance < radius - 0.65 or (frame.fill and distance <= radius):
                 # Occlude the background, with sparse, stable cytoplasmic granules.
                 speckle = (
-                    (col - round(cell.x)) * 31 + (row - round(cell.y / ASPECT)) * 17 + cell.id * 7
+                    (col - frame.grid.point(cell.x, cell.y)[0]) * 31
+                    + (row - frame.grid.point(cell.x, cell.y)[1]) * 17
+                    + cell.id * 7
                 ) % 43
                 char = "·" if unicode else "."
                 tint = Ink.FILL_NEUTROPHIL if cell.kind == "neutrophil" else Ink.FILL_CYTOPLASM
@@ -119,7 +127,7 @@ def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: b
     mouth = 0.0
     if cell.state is State.ENCLOSE:
         mouth = 0.34 * smooth(cell.elapsed / 1.5) * (1 - smooth((cell.elapsed - SEAL_TIME) / 1.5))
-    samples = max(80, math.ceil(cell.radius * 16))
+    samples = max(80, math.ceil(cell.radius * frame.grid.scale * 16))
     points = []
     for index in range(samples + 1):
         angle = index * TAU / samples
@@ -141,8 +149,11 @@ def draw_cell(frame: Frame, cell: Cell, now: float, unicode: bool, *, nucleus: b
     draw_organelles(frame, cell, now, unicode)
     if cell.kind == "neutrophil":
         for col, row in body:
-            dx, dy = col - round(cell.x), row - round(cell.y / ASPECT)
-            if (dx * 17 + dy * 31) % 41 == 0 and math.hypot(dx, dy * ASPECT) < cell.radius * 0.78:
+            cx, cy = frame.grid.point(cell.x, cell.y)
+            dx, dy = col - cx, row - cy
+            if (dx * 17 + dy * 31) % 41 == 0 and math.hypot(
+                dx, dy * frame.grid.aspect
+            ) / frame.grid.scale < cell.radius * 0.78:
                 frame.put(col, row, ":", Ink.CYTOPLASM)
     for vesicle in cell.vesicles:
         x = cell.x + math.cos(vesicle.angle) * cell.radius * vesicle.distance
@@ -181,19 +192,20 @@ def draw_ring(
 ) -> None:
     # Mask rasterized glyphs, rather than samples: many samples can land on a
     # single glyph, which otherwise kept a dissolving envelope visibly intact.
-    samples = max(40, math.ceil(max(rx, ry) * 16))
+    samples = max(40, math.ceil(max(rx, ry) * frame.grid.scale * 16))
     points = []
     for index in range(samples + 1):
         angle = index * TAU / samples
         points.append((x + math.cos(angle) * rx, y + math.sin(angle) * ry, angle))
     for col, row, angle in contour_pixels(points):
-        order = ((col - round(x)) * 7 + (row - round(y / ASPECT)) * 11) % 17 / 17
+        cx, cy = frame.grid.point(x, y)
+        order = ((col - cx) * 7 + (row - cy) * 11) % 17 / 17
         if order < fraction:
             frame.put(col, row, membrane_char(angle, unicode), ink, bg=bg)
 
 
 def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None:
-    if cell.radius < 7:
+    if cell.radius * frame.grid.scale < 7:
         return
     division = (
         smooth((cell.elapsed - 26) / (DIVISION_TIME - 26)) if cell.state is State.DIVIDE else 0
@@ -201,12 +213,13 @@ def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None
     ux, uy = math.cos(cell.division_angle), math.sin(cell.division_angle)
 
     def plot(x, y, char, ink):
-        col, row = round(x), round(y / ASPECT)
-        dx, dy = col - cell.x, row * ASPECT - cell.y
+        col, row = frame.grid.point(x, y)
+        wx, wy = frame.grid.world(col, row)
+        dx, dy = wx - cell.x, wy - cell.y
         if math.hypot(dx, dy) < cell.outline(math.atan2(dy, dx), now) - 1.1:
             frame.put(col, row, char, ink)
 
-    compact = frame.width < 110 or frame.height < 36 or cell.radius < 13
+    compact = frame.grid.scale <= 1 and (frame.width < 110 or frame.height < 36 or cell.radius < 13)
     visible = {"mitochondrion": 0, "reticulum": 0, "lysosome": 0}
     for network in cell.organelles:
         visible[network.kind] += 1
@@ -241,7 +254,7 @@ def draw_organelles(frame: Frame, cell: Cell, now: float, unicode: bool) -> None
             dx, dy = xx - x, yy - y
             char = membrane_char(math.atan2(dy, dx) + math.pi / 2, unicode)
             for col, row in line_pixels(x, y, xx, yy):
-                plot(col, row * ASPECT, char, ink)
+                plot(*frame.grid.world(col, row), char, ink)
         if network.kind == "lysosome":
             plot(*points[0], "o", ink)
         elif network.kind == "mitochondrion":
@@ -254,11 +267,11 @@ def draw_nuclear_body(
     frame: Frame, x: float, y: float, radius: float, unicode: bool, nucleolus: bool = True
 ) -> None:
     # One raster anchor keeps the envelope, chromatin, and nucleolus together.
-    cx, cy = round(x), round(y / ASPECT)
+    cx, cy = frame.grid.point(x, y)
     mask = nuclear_mask(radius)
     for col, row in mask:
         if any((col + dx, row + dy) not in mask for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]):
-            char = membrane_char(math.atan2(row * ASPECT, col), unicode)
+            char = membrane_char(math.atan2(row * frame.grid.aspect, col), unicode)
         elif frame.fill:
             # The tint carries the nucleoplasm; texture glyphs would only add noise.
             char = " "
@@ -429,8 +442,8 @@ def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
 
 
 def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
-    frame = Frame(round(world.width), round(world.height / ASPECT), fill)
-    compact_view = frame.width < 110 or frame.height < 36
+    frame = Frame.from_world(world, fill)
+    compact_view = frame.grid.scale <= 1 and (frame.width < 110 or frame.height < 36)
     draw_nutrients(frame, world, unicode)
     draw_hyphae(frame, world, unicode)
     # Stable size-based depth cues add contrast without adding particles or
@@ -445,9 +458,16 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
         )
     for red in world.red_cells:
         rx, ry = disc_axes(red)
-        for row in range(math.floor((red.y - ry) / ASPECT), math.ceil((red.y + ry) / ASPECT) + 1):
-            for col in range(math.floor(red.x - rx), math.ceil(red.x + rx) + 1):
-                distance = ((col - red.x) / rx) ** 2 + ((row * ASPECT - red.y) / ry) ** 2
+        for row in range(
+            max(0, math.floor(frame.grid.row(red.y - ry))),
+            min(frame.height, math.ceil(frame.grid.row(red.y + ry)) + 1),
+        ):
+            for col in range(
+                max(0, math.floor(frame.grid.column(red.x - rx))),
+                min(frame.width, math.ceil(frame.grid.column(red.x + rx)) + 1),
+            ):
+                wx, wy = frame.grid.world(col, row)
+                distance = ((wx - red.x) / rx) ** 2 + ((wy - red.y) / ry) ** 2
                 if distance < 0.85:
                     pale = distance < 0.23
                     if frame.fill:
@@ -496,6 +516,7 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
             # A late-stage capture can cross the nuclear anchor; keep the
             # nucleus connected rather than letting a microbe erase half of it.
             draw_nucleus(frame, owner, unicode)
+    draw_complement(frame, world, unicode)
     for burst in world.bursts:
         radius = 2 + burst.age * 9
         for index in range(12):
@@ -503,7 +524,13 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
             x, y = burst.x + math.cos(angle) * radius, burst.y + math.sin(angle) * radius
             if next(world.obstacles(x, y, 1.1), None) is None:
                 char = "*" if burst.age < 0.35 else ":" if burst.age < 1 else "."
-                frame.point(x, y, char, Ink.LYSIS, burst.age < 0.5)
+                frame.point(
+                    x,
+                    y,
+                    char,
+                    Ink.COMPLEMENT if burst.cause == "complement" else Ink.LYSIS,
+                    burst.age < 0.5,
+                )
     from .event_render import draw_sighting
 
     draw_sighting(frame, world, unicode)
@@ -511,6 +538,27 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
 
     draw_lab(frame, world, unicode)
     return frame
+
+
+def draw_complement(frame, world, unicode):
+    for obj in world.bacteria.values():
+        binding = obj.complement
+        if binding is None or binding.level <= 0:
+            continue
+        owner = next((c for c in world.cells if c.id == obj.owner), None)
+        if owner is not None and owner.state is State.ENCLOSE:
+            continue
+        a, b = microbe_axes(obj)
+        scale = bacterial_scale(obj)
+        ca, sa = math.cos(obj.angle), math.sin(obj.angle)
+        count = max(1, round(binding.level * 6))
+        for i in range(count):
+            theta = obj.id * 0.7 + i * TAU / count
+            x, y = math.cos(theta) * (a * scale + 0.35), math.sin(theta) * (b * scale + 0.35)
+            pore = obj.complement_sensitive and binding.age >= 10 and i % 2 == 0
+            wx, wy = obj.x + ca * x - sa * y, obj.y + sa * x + ca * y
+            if not world.is_blocked(wx, wy, padding=0.1):
+                frame.point(wx, wy, "o" if pore else "·" if unicode else ":", Ink.COMPLEMENT, pore)
 
 
 def draw_phage(
@@ -521,10 +569,22 @@ def draw_phage(
     ink = Ink.MUTED if empty else Ink.PHAGE
     ux, uy = math.cos(phage.angle), math.sin(phage.angle)
     bold = not empty and contraction < 0.5
+    if frame.grid.scale >= 2:
+        head, tip = phage_geometry(phage, contraction)
+        frame.line(*head, *tip, ink, unicode)
+        frame.point(*head, "o" if empty else "●" if unicode else "O", ink, bold)
+        for side in (-1, 1):
+            frame.line(
+                *tip,
+                tip[0] + ux * 0.5 - uy * side * 0.5,
+                tip[1] + uy * 0.5 + ux * side * 0.5,
+                ink,
+                unicode,
+            )
+        return
     if abs(ux) > abs(uy):
         frame.text(
-            round(phage.x - 0.5),
-            round(phage.y / ASPECT),
+            *frame.grid.point(phage.x - 0.5, phage.y),
             "-<" if ux > 0 else ">-",
             ink,
             bold,
@@ -580,22 +640,23 @@ def draw_nutrients(frame: Frame, world: World, unicode: bool) -> None:
     for patch in world.nutrients:
         radius = patch.radius
         for row in range(
-            max(0, math.floor((patch.y - radius) / ASPECT)),
-            min(frame.height, math.ceil((patch.y + radius) / ASPECT) + 1),
+            max(0, math.floor(frame.grid.row(patch.y - radius))),
+            min(frame.height, math.ceil(frame.grid.row(patch.y + radius)) + 1),
         ):
             for col in range(
-                max(0, math.floor(patch.x - radius)),
-                min(frame.width, math.ceil(patch.x + radius) + 1),
+                max(0, math.floor(frame.grid.column(patch.x - radius))),
+                min(frame.width, math.ceil(frame.grid.column(patch.x + radius)) + 1),
             ):
-                dx, dy = col - patch.x, row * ASPECT - patch.y
+                wx, wy = frame.grid.world(col, row)
+                dx, dy = wx - patch.x, wy - patch.y
                 if dx * dx + dy * dy > radius * radius:
                     continue
-                speckle = ((col - round(patch.x)) * 17 + (row - round(patch.y / ASPECT)) * 31) % 19
+                speckle = (
+                    (col - frame.grid.point(patch.x, patch.y)[0]) * 17
+                    + (row - frame.grid.point(patch.x, patch.y)[1]) * 31
+                ) % 19
                 threshold = 4 if patch.amount > 2 else 2
-                if (
-                    speckle < threshold
-                    and next(world.obstacles(col, row * ASPECT, 1), None) is None
-                ):
+                if speckle < threshold and next(world.obstacles(wx, wy, 1), None) is None:
                     frame.put(col, row, "·" if unicode else ".", Ink.NUTRIENT)
 
 
@@ -604,7 +665,7 @@ def draw_hyphae(frame: Frame, world: World, unicode: bool) -> None:
         for a, b in hypha.edges:
             x, y = hypha.nodes[a]
             xx, yy = hypha.nodes[b]
-            steps = max(1, math.ceil(math.hypot(xx - x, yy - y) * 2))
+            steps = max(1, math.ceil(math.hypot(xx - x, yy - y) * 2 * frame.grid.scale))
             for step in range(steps + 1):
                 px, py = x + (xx - x) * step / steps, y + (yy - y) * step / steps
                 if next(world.obstacles(px, py, 1.3), None) is None:
@@ -731,6 +792,8 @@ def draw_bacterium(
     tail: float = 1.0,
 ) -> None:
     ink = BACTERIA_INKS[bacterium.kind]
+    if world is not None and not compact:
+        tail = min(tail, tail_fraction(world, bacterium))
     ux, uy = math.cos(bacterium.angle), math.sin(bacterium.angle)
     a, b = microbe_axes(bacterium)
     scale = min(0.55, 2.1 / max(a, b)) if compact else bacterial_scale(bacterium)
@@ -745,6 +808,28 @@ def draw_bacterium(
 
     if bacterium.infection is not None:
         tail *= 1 - smooth(bacterium.infection.age / 7)
+    if (
+        frame.grid.scale < 1
+        and frame.grid.scale * max(a, b) * scale < 2.5
+        and not compact
+        and viral is None
+    ):
+        # At overview scale, a sparse icon reads better than a collapsed outline.
+        col, row = frame.grid.point(bacterium.x, bacterium.y)
+        glyph = (
+            "o"
+            if bacterium.kind in ("rod", "coccus", "yeast")
+            else "~"
+            if bacterium.kind in ("spiral", "spirochete")
+            else "c"
+            if bacterium.kind == "vibrio"
+            else ":"
+        )
+        frame.put(col, row, glyph, ink, True)
+        if MICROBES[bacterium.kind].flagellum and tail > 0.25:
+            dx, dy = (-1 if ux > 0 else 1, 0) if abs(ux) >= abs(uy) else (0, -1 if uy > 0 else 1)
+            frame.put(col + dx, row + dy, "~", ink)
+        return
     if MICROBES[bacterium.kind].flagellum and not compact and tail > 0.02:
         # A traveling wave implies flagellar propulsion. Clip the flexible tail
         # at obstacles; the body uses the larger physical collision clearance.
@@ -790,6 +875,15 @@ def draw_bacterium(
         "~" if bacterium.kind == "rod" else "·" if unicode else ".",
         Ink.MICROBIAL_DNA,
     )
+    if frame.grid.scale >= 2 and not compact and bacterium.infection is None:
+        for along in (-a * 0.35, 0, a * 0.35):
+            frame.point(
+                *point(along, math.sin(along * 2) * b * 0.2),
+                "≋" if unicode else "~",
+                Ink.MICROBIAL_DNA,
+            )
+        for along, across in ((-a * 0.2, b * 0.55), (a * 0.35, -b * 0.5)):
+            frame.point(*point(along, across), ".", ink)
     if bacterium.infection is not None and not compact:
         draw_infection(frame, bacterium, unicode, point)
     elif bacterium.fed_until > now:
@@ -842,6 +936,7 @@ LEGEND = [
     ("Viral genome: green pulse", Ink.VIRAL_DNA),
     ("Spindle fibers: blue", Ink.SPINDLE),
     ("Capture flash / lysis: white", Ink.CAPTURE),
+    ("Complement: pale cyan coating / pores", Ink.COMPLEMENT),
 ]
 HELP_INKS = dict(LEGEND)
 GENERAL_HELP = [
@@ -851,6 +946,7 @@ GENERAL_HELP = [
     "Space      pause / resume",
     "+ / -      speed up / slow down",
     "r          new slide",
+    "H/J/K/L    pan the magnified view",
     "s          show / hide observations",
     "?          close this help",
     "",

@@ -141,6 +141,15 @@ class Infection:
 
 
 @dataclass
+class ComplementBinding:
+    age: float = 0.0
+
+    @property
+    def level(self):
+        return smooth(self.age / 6) * (1 - smooth((self.age - 24) / 8))
+
+
+@dataclass
 class Entry:
     angle: float
     remaining: float
@@ -173,6 +182,8 @@ class Bacterium:
     swelling: float = 1.0
     leaving: bool = False
     entry: Entry | None = None
+    complement_sensitive: bool = False
+    complement: ComplementBinding | None = None
 
 
 @dataclass
@@ -217,6 +228,7 @@ class Burst:
     y: float
     angle: float = 0.0
     age: float = 0.0
+    cause: str = "phage"
 
 
 @dataclass

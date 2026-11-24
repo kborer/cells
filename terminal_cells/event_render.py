@@ -3,7 +3,7 @@
 import math
 
 from .events import web_segments
-from .models import ASPECT, Bacterium, TAU, smooth
+from .models import Bacterium, TAU, smooth
 from .render import BACTERIA_INKS, Frame, Ink, draw_bacterium
 
 
@@ -27,8 +27,9 @@ def _rotifer(frame, e, unicode):
 
     drawing = Frame(frame.width, frame.height)
     # Pear-shaped body with segmented cuticle, forked foot, and moving mastax.
-    for i in range(81):
-        angle = i * TAU / 80
+    samples = max(80, math.ceil(80 * frame.grid.scale))
+    for i in range(samples + 1):
+        angle = i * TAU / samples
         along, across = math.cos(angle) * 9, math.sin(angle) * (3.5 + 0.5 * math.cos(angle))
         drawing.point(
             *point(along, across), "-" if abs(math.sin(angle)) > 0.6 else "/", Ink.ROTIFER
@@ -74,11 +75,11 @@ def _net(frame, world, e, unicode):
         return
     visible = 1 - smooth((e.age - 45) / 15)
     for start, end in web_segments(e):
-        steps = max(1, math.ceil(math.dist(start, end) * 2))
+        steps = max(1, math.ceil(math.dist(start, end) * 2 * frame.grid.scale))
         for index in range(steps + 1):
             t = index / steps
             x, y = start[0] * (1 - t) + end[0] * t, start[1] * (1 - t) + end[1] * t
-            col, row = round(x), round(y / ASPECT)
+            col, row = frame.grid.point(x, y)
             if (col * 31 + row * 17) % 101 / 101 < visible and next(
                 world.obstacles(x, y, 0.1, exempt=e.source), None
             ) is None:

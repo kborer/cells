@@ -205,3 +205,28 @@ SVG illustrations are generated from its own simulation and renderer.
 See [rare sightings](RARE_EVENTS.md) for visiting rotifers, neutrophil DNA traps,
 and micropipette interventions, and [the color guide](COLORS.md) for the full
 entity palette.
+
+## Complement and recognition
+
+Mixed and blood scenes contain a deliberately simplified dissolved complement
+system. Surface coating appears over several seconds, extends immune-cell
+recognition range, and favors coated prey. A per-bacterium susceptibility trait,
+independent of its shape, permits a membrane-pore stage and subsequent lysis.
+Resistant bacteria retain their coating temporarily and then lose it. Coating is
+capped at eight targets and is renewed only occasionally; it adds no cloud of
+free molecular particles. [Staged comparison](complement.svg): the upper rod is
+susceptible and the lower rod is resistant despite their identical morphology.
+
+The liver supplies most circulating complement components, while other cells can
+produce components locally; this program represents that supply implicitly.
+[An endothelial complement-production study](https://pmc.ncbi.nlm.nih.gov/articles/PMC1905676/)
+provides background. This illustration does not model the complement pathways,
+specific bacterial species, or quantitative immune responses. Its surface marks
+are an explanatory visual convention, not a claim that proteins are visible at
+this magnification.
+
+Capture takes priority over the membrane-attack animation. Phage infection
+interrupts it, and complement lysis releases nutrients and a brief cyan effect
+rather than viral progeny. Inspect and observation captions identify the state;
+`--no-complement` disables ambient activity. The microbial preset omits this human
+immune component. Bacterial offspring inherit susceptibility but start uncoated.

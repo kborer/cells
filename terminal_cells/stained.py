@@ -9,7 +9,7 @@ import math
 
 from .frame import FILL_INKS, Ink, PALETTES
 from .geometry import nuclear_bodies
-from .models import ASPECT, disc_axes, nucleus_radii
+from .models import disc_axes, nucleus_radii
 from .render import render as classic_render
 
 # Bits are upper-left, upper-right, lower-left, lower-right. A full tile uses
@@ -80,19 +80,24 @@ def render(world, options):
     ):
         return classic_render(world, options.unicode, options.fill)
     frame = classic_render(world, options.unicode, fill=True)
+    grid = frame.grid
     stains = {}  # Per-frame, bounded by the viewport; never retained by the style.
 
     def paint(x, y, rx, ry, sample):
-        left, right = max(0, math.floor(x - rx - 1)), min(frame.width, math.ceil(x + rx + 1))
+        left, right = (
+            max(0, math.floor(grid.column(x - rx) - 1)),
+            min(frame.width, math.ceil(grid.column(x + rx) + 1)),
+        )
         top, bottom = (
-            max(0, math.floor((y - ry) / ASPECT - 1)),
-            min(frame.height, math.ceil((y + ry) / ASPECT + 1)),
+            max(0, math.floor(grid.row(y - ry) - 1)),
+            min(frame.height, math.ceil(grid.row(y + ry) + 1)),
         )
         for row in range(top, bottom):
             for col in range(left, right):
                 values = stains.get((col, row))
                 for index, (ox, oy) in enumerate(SAMPLES):
-                    ink = sample(col + ox - x, row * ASPECT + oy - y)
+                    wx, wy = grid.world(col, row)
+                    ink = sample(wx + ox / grid.scale - x, wy + oy / grid.scale - y)
                     if ink is not None:
                         if values is None:
                             values = [None] * 4
@@ -124,9 +129,12 @@ def render(world, options):
         # Intact nuclear bodies use the same anchor/extent as selection. During
         # mitosis the classic staged chromosomes, envelopes and spindle remain.
         for nx, ny, radius, _ in nuclear_bodies(cell):
-            cx, cy = round(nx), round(ny / ASPECT) * ASPECT
+            cx, cy = grid.snap(nx, ny)
             rx, ry = nucleus_radii(radius)
-            rx, ry = max(2, round(rx)), max(1, round(ry / ASPECT)) * ASPECT
+            rx, ry = (
+                max(2, round(rx * grid.scale)) / grid.scale,
+                max(1, round(ry * grid.scale / grid.aspect)) * grid.aspect / grid.scale,
+            )
 
             def nuclear(dx, dy):
                 if (dx / rx) ** 2 + (dy / ry) ** 2 > 1.12:

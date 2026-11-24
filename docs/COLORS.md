@@ -25,6 +25,7 @@ its actual selected palette. Use arrows or j/k to reach all entries.
 | Rotifer | Coral | Segmented animal and two ciliary crowns |
 | DNA trap | Pale lilac | Branching extracellular web |
 | Micropipette | Neutral gray | Long tapered glass outline |
+| Complement | Pale cyan | Sparse surface dots; open pores on susceptible bacteria |
 
 Bright lime is reserved for phage bodies; red entity outlines identify red blood
 cells. Viral genomes use a related green, while food uses a subdued green.
@@ -33,7 +34,8 @@ and larger particles have slightly more contrast. Their size-based depth cues
 stay stable as they move; no extra particles are added. In colorless and basic
 color modes, `.` versus `:` (or Unicode `·`) retains a shape cue. This is a visual
 depth effect; all organisms still share the same two-dimensional simulation.
-Capture and viral lysis highlights are white. Experimental rupture debris retains
+Capture and viral lysis highlights are white. Complement-mediated lysis uses
+its pale-cyan coating color and releases no phage symbols. Experimental rupture debris retains
 the colors of its source cell and organelles.
 With `--fill` on a 256-color terminal, cell bodies are also tinted from behind:
 each terminal cell pairs a dark background color with a foreground glyph, so

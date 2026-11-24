@@ -294,25 +294,12 @@ def half_block_preview(directory):
     block cell: both rows filled is a full block, one row is the upper or lower
     half. A monochrome sketch of the idea, next to the line art at the same size.
     """
-    import importlib
+    from terminal_cells.viewport import Grid, projection
 
-    render_module = importlib.import_module("terminal_cells.render")
     world = World(120, 36, seed=42)
     for _ in range(180):
         world.update()
-    # Preview-only overrides must agree across the split drawing modules.
-    # Keep simulation/model units unchanged and restore even if drawing fails.
-    from contextlib import ExitStack
-    from unittest.mock import patch
-
-    modules = [
-        importlib.import_module("terminal_cells." + name)
-        for name in ("render", "frame", "geometry", "event_render")
-    ]
-    aspect = render_module.ASPECT / 2
-    with ExitStack() as stack:
-        for module in modules:
-            stack.enter_context(patch.object(module, "ASPECT", aspect))
+    with projection(Grid(aspect=1)):
         tall = render(world, unicode=True)
     merged = Frame(tall.width, (tall.height + 1) // 2)
     for row in range(merged.height):

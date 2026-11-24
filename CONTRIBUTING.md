@@ -41,6 +41,9 @@ steps. Resizing and interactive tools change that history.
 | Organism defaults and state | `terminal_cells/catalog.py`, `models.py` |
 | Shared boundaries and foreground selection | `terminal_cells/geometry.py` |
 | Movement, capture, reproduction, arrivals | `terminal_cells/world.py` |
+| Footprint budgets and local spacing | `terminal_cells/crowding.py` |
+| Complement coating and selective lysis | `terminal_cells/complement.py` |
+| Magnification and world/screen coordinates | `terminal_cells/viewport.py` |
 | Classic shapes and organelles | `terminal_cells/render.py` |
 | Presentation styles and shared frames | `terminal_cells/styles.py`, `frame.py`, `stained.py`, `raster.py`; [style architecture](docs/PRESENTATION_STYLES.md) |
 | Rare sightings | `terminal_cells/events.py`, `event_render.py` |

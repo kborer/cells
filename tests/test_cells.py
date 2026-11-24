@@ -407,6 +407,7 @@ class MembraneTests(unittest.TestCase):
         world.red_cells.clear()
         world.phages.clear()
         world.replenish_at = math.inf
+        world.nutrient_at = math.inf  # Isolate reflection from later food-seeking turns.
         return world
 
     def assert_outside(self, world, obj, padding):
@@ -1466,6 +1467,15 @@ class TerminalTests(unittest.TestCase):
     def test_fast_simulation_still_quits_responsively(self):
         elapsed, _ = self.session(b"q", ("--speed", "8", "--fps", "1", "--density", "3"))
         self.assertLess(elapsed, 1.2)
+
+    def test_magnified_tools_pan_resize_and_cleanup(self):
+        _, output = self.session(
+            b"HJKL1\t2\n3ll\n4\n",
+            ("--interactive", "--magnification", "detail", "--style", "raster"),
+            resize=True,
+        )
+        self.assertIn(b"? help", output)
+        self.assertIn(b"1006", output)
 
     def test_interactive_keyboard_tools_and_resize(self):
         _, output = self.session(

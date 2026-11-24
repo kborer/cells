@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="1115" viewBox="0 0 1020 1115">
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="1140" viewBox="0 0 1020 1140">
 <title>cells palette audit: all semantic inks</title>
 <rect width="1020" height="100%" fill="#10171d"/>
 <g font-family="DejaVu Sans Mono,monospace" font-size="14">
-<rect x="0" width="340" height="1115" fill="#10171d"/>
+<rect x="0" width="340" height="1140" fill="#10171d"/>
 <text x="16" y="30" fill="#eeeeee">slide: extended / basic index</text>
 <rect x="16" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="46" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -86,7 +86,9 @@
 <text x="46" y="1040" fill="#eeeeee">FILL_RED 52/0</text>
 <rect x="16" y="1052" width="20" height="16" fill="#1c1c1c"/>
 <text x="46" y="1065" fill="#eeeeee">FILL_RED_PALE 234/0</text>
-<rect x="340" width="340" height="1115" fill="#10171d"/>
+<rect x="16" y="1077" width="20" height="16" fill="#afffff"/>
+<text x="46" y="1090" fill="#afffff">COMPLEMENT 159/6</text>
+<rect x="340" width="340" height="1140" fill="#10171d"/>
 <text x="356" y="30" fill="#eeeeee">amber: extended / basic index</text>
 <rect x="356" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="386" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -170,7 +172,9 @@
 <text x="386" y="1040" fill="#eeeeee">FILL_RED 52/0</text>
 <rect x="356" y="1052" width="20" height="16" fill="#1c1c1c"/>
 <text x="386" y="1065" fill="#eeeeee">FILL_RED_PALE 234/0</text>
-<rect x="680" width="340" height="1115" fill="#ffffff"/>
+<rect x="356" y="1077" width="20" height="16" fill="#afffff"/>
+<text x="386" y="1090" fill="#afffff">COMPLEMENT 159/6</text>
+<rect x="680" width="340" height="1140" fill="#ffffff"/>
 <text x="696" y="30" fill="#101010">light: extended / basic index</text>
 <rect x="696" y="52" width="20" height="16" fill="#bcbcbc"/>
 <text x="726" y="65" fill="#bcbcbc">DEBRIS 250/7</text>
@@ -254,4 +258,6 @@
 <text x="726" y="1040" fill="#101010">FILL_RED 224/7</text>
 <rect x="696" y="1052" width="20" height="16" fill="#eeeeee"/>
 <text x="726" y="1065" fill="#101010">FILL_RED_PALE 255/7</text>
+<rect x="696" y="1077" width="20" height="16" fill="#0087af"/>
+<text x="726" y="1090" fill="#0087af">COMPLEMENT 31/6</text>
 </g></svg>

@@ -18,8 +18,9 @@ where practical, and update their contributor examples and contract tests.
 | Comparison fixtures | `scenes.SCENES`, `make_scene()` | Independent, staged developer worlds with real fixed-step updates |
 | Contributor checks | `style_checks.check_style()` and `check_world_retention()` | Opt-in checks; never part of the animation loop |
 
-World x/y positions use specimen coordinates. Terminal rows multiply by `ASPECT`
-to get specimen y; frame dimensions are world width by world height / ASPECT.
+World x/y positions use specimen coordinates. At normal magnification, terminal
+rows multiply by `ASPECT` to get specimen y. A camera can change the optical scale
+and origin; use `frame.grid` to map coordinates and `Frame.from_world` for dimensions.
 `hit_test()` takes terminal columns and rows. `nuclear_bodies()`, `nuclear_mask()`,
 and `nuclear_contains()` describe intact nuclear foreground; the mask/contains
 functions use terminal raster coordinates. Mitotic structures have their own
@@ -38,6 +39,11 @@ population limits, and seeded randomness. Existing underscored methods remain
 implementation details; older `_obstacles` callers still work through a wrapper.
 The compatibility exports in `terminal_cells` and `terminal_cells.render` remain
 available, but new contributions should import the owning module shown here.
+
+`viewport.Camera` scopes optical scale independently of the model. Styles should
+allocate with `Frame.from_world`, project points/lines with the frame's grid, and
+leave text/put coordinates in terminal cells. `geometry.hit_test(..., grid=...)`
+uses the same inverse mapping for tools. See the [camera contract](PRESENTATION_STYLES.md#magnification-and-camera-coordinates).
 
 Styles expose `default_fill`, optional `legend`, and `palette(theme)` so the terminal and comparison
 gallery use the same negotiated effects and semantic-color definitions. Each

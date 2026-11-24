@@ -7,7 +7,7 @@ This module does not depend on a presentation style or simulation world.
 from dataclasses import dataclass
 from enum import Enum
 
-from .models import ASPECT
+from .viewport import CURRENT
 
 
 class Ink(Enum):
@@ -53,6 +53,7 @@ class Ink(Enum):
     FILL_NUCLEUS = 39
     FILL_RED = 40
     FILL_RED_PALE = 41
+    COMPLEMENT = 42
 
 
 # Entity hues retain their meaning across colored themes. Internal anatomy and
@@ -99,6 +100,7 @@ _DARK = [
     (53, 0),
     (52, 0),
     (234, 0),
+    (159, 6),
 ]
 _LIGHT = [
     (250, 7),
@@ -142,6 +144,7 @@ _LIGHT = [
     (189, 7),
     (224, 7),
     (255, 7),
+    (31, 6),
 ]
 _AMBER = list(_DARK)
 _AMBER[Ink.CYTOPLASM.value - 1] = (58, 3)
@@ -185,9 +188,17 @@ class Frame:
     """
 
     def __init__(self, columns: int, rows: int, fill: bool = False):
+        self.grid = CURRENT.get()
         self.width, self.height = columns, rows
         self.fill = fill
         self.pixels = [[EMPTY for _ in range(columns)] for _ in range(rows)]
+
+    @classmethod
+    def from_world(cls, world, fill=False):
+        grid = CURRENT.get()
+        return cls(
+            grid.columns or round(world.width), grid.rows or round(world.height / grid.aspect), fill
+        )
 
     def put(self, x: int, y: int, char: str, ink: Ink, bold: bool = False, bg=KEEP) -> None:
         if 0 <= x < self.width and 0 <= y < self.height:
@@ -220,7 +231,7 @@ class Frame:
             self.pixels[y][x] = Pixel(char, ink, bold, None, color, background)
 
     def point(self, x: float, y: float, char: str, ink: Ink, bold: bool = False) -> None:
-        self.put(round(x), round(y / ASPECT), char, ink, bold)
+        self.put(*self.grid.point(x, y), char, ink, bold)
 
     def text(
         self, x: int, y: int, text: str, ink: Ink = Ink.TEXT, bold: bool = False, bg=None
@@ -246,17 +257,19 @@ class Frame:
             char = "│" if unicode else "|"
         else:
             char = "\\" if dx * dy > 0 else "/"
-        for col, row in line_pixels(x1, y1, x2, y2):
+        for col, row in line_pixels(x1, y1, x2, y2, grid=self.grid):
             self.put(col, row, char, ink, bg=bg)
 
     def plain(self) -> str:
         return "\n".join("".join(p.char for p in row) for row in self.pixels)
 
 
-def line_pixels(x1: float, y1: float, x2: float, y2: float):
+def line_pixels(x1: float, y1: float, x2: float, y2: float, *, grid=None):
     # Rasterize in character coordinates: subpixel sampling can thicken
     # diagonal strokes into staircases of adjacent slashes.
-    x, y, end_x, end_y = round(x1), round(y1 / ASPECT), round(x2), round(y2 / ASPECT)
+    grid = CURRENT.get() if grid is None else grid
+    x, y = grid.point(x1, y1)
+    end_x, end_y = grid.point(x2, y2)
     width, height = abs(end_x - x), abs(end_y - y)
     sx, sy = 1 if x < end_x else -1, 1 if y < end_y else -1
     error = width - height

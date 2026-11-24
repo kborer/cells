@@ -9,7 +9,7 @@ from .frame import Frame, Ink
 from .models import ASPECT
 
 
-def check_style(style, world, options):
+def check_style(style, world, options, *, camera=None):
     """Assert purity, determinism, sizing, output fallbacks, and bounded caches.
 
     Raises AssertionError with a useful contract violation; returns the frame for
@@ -17,10 +17,21 @@ def check_style(style, world, options):
     in cache_info(), including functools.lru_cache wrappers when used.
     """
     before = pickle.dumps(world)
-    frame = style.render(world, options)
+
+    def draw():
+        return (
+            style.render(world, options) if camera is None else camera.render(style, world, options)
+        )
+
+    frame = draw()
     assert pickle.dumps(world) == before, "Rendering changed the world or its RNG"
     assert isinstance(frame, Frame), "A style must return a shared Frame"
-    assert (frame.width, frame.height) == (round(world.width), round(world.height / ASPECT)), (
+    expected = (
+        (round(world.width), round(world.height / ASPECT))
+        if camera is None
+        else (camera.columns, camera.rows)
+    )
+    assert (frame.width, frame.height) == expected, (
         "Frame dimensions must match the specimen viewport"
     )
     assert len(frame.pixels) == frame.height, "Frame row count is inconsistent"
@@ -54,7 +65,7 @@ def check_style(style, world, options):
                     "Style ignored background fallback"
                 )
     saved = pickle.dumps(frame)
-    repeated = style.render(world, options)
+    repeated = draw()
     assert repeated is not frame, "Return a fresh frame so UI overlays cannot corrupt cached output"
     assert pickle.dumps(frame) == saved, "Rendering mutated an earlier frame"
     assert repeated.pixels == frame.pixels, "Rendering is not deterministic"

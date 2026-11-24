@@ -14,6 +14,7 @@ is described below. The earlier unreleased `microscopy` name is now `stained`.
 
 ```text
 World (models, biology, seeded updates)
+  -> Camera / scoped specimen-to-terminal Grid
   -> PresentationStyle.render(world, RenderOptions)
   -> Frame (Pixel grid with semantic foreground/background inks)
   -> session overlays (help, observations, interactive cursor)
@@ -32,8 +33,9 @@ World (models, biology, seeded updates)
 - `World.update`, input, timing, resize, and UI composition remain outside styles.
   Model geometry remains the authority for membranes, capture, and division.
 
-A style returns a new frame matching the world viewport: `round(world.width)`
-columns and `round(world.height / ASPECT)` rows. It must not mutate the world,
+A style returns a fresh frame allocated with `Frame.from_world(world)`. Without a
+camera it has `round(world.width)` columns and `round(world.height / ASPECT)` rows;
+with a camera it matches the physical terminal viewport. It must not mutate the world,
 consume any simulation RNG, write to the terminal, or advance time. Use simulation
 coordinates/time for deterministic texture; never use random draws during painting.
 A Python protocol expresses this contract, rather than enforcing read-only models.
@@ -85,7 +87,7 @@ viral cycle, and tool effects. DNA-trap sources retain their canonical fade.
 
 The prototype uses finite semantic-color pairs, not true-color raster output.
 Species and transient-effect hues retain their classic meanings; only cytoplasm
-and stain backgrounds differ. The backend reserves up to 246 color pairs, below
+and stain backgrounds differ. The backend reserves up to 252 color pairs, below
 the 256-pair limit. ASCII, basic-color, colorless, mono-theme, and plain snapshot
 output use classic drawing. A failed tint allocation also triggers that fallback.
 
@@ -134,7 +136,7 @@ raster; ordinary bacteria, membranes, and organelles are pigment shapes/strokes.
 
 `Frame.indexed()` supplies explicit 0..255 foreground/background colors while
 retaining each pixel's semantic ink. Plain UI overlays replace indexed tiles.
-Fourteen pigments have at most 196 ordered pairs; together with 41 semantic UI
+Fourteen pigments have at most 196 ordered pairs; together with 42 semantic UI
 pairs this stays below 256. The backend caches pairs without reassigning them,
 compares indexed colors during incremental output, and falls back after allocation
 failure. Unsupported color/glyph output and snapshots use classic drawing.
@@ -182,5 +184,41 @@ slide as line art and as two vertically sampled rows per terminal cell. This is
 an offline silhouette experiment, not a selectable runtime style. Each output
 cell uses one ink: when the two samples differ, the lower sample wins. It does
 not yet preserve two independent colors or replace strokes with filled anatomy.
-Sampling overrides are confined to the preview and restored before ordinary
-rendering. Existing ASCII/Unicode comparison previews remain available.
+The preview uses a scoped sampling grid instead of changing module globals;
+ordinary rendering resumes with its previous projection. Existing ASCII/Unicode comparison previews remain available.
+
+## Magnification and camera coordinates
+
+`viewport.py` owns a finite, immutable `Grid` and a lightweight `Camera`. The
+session selects overview (0.5×), normal (1×), or detail (3×) and calls
+`camera.render(style, world, options)`. This scopes the grid with a `ContextVar`
+and restores it on success or exception. No model coordinates, sizes, collision
+rules, or simulation RNG are changed by rendering or panning.
+
+Styles allocate with `Frame.from_world(world, fill)` so the camera controls output
+dimensions. `frame.grid` maps specimen coordinates to terminal positions and back.
+`Frame.point` and `Frame.line` use that grid; `Frame.put` and `Frame.text` remain
+terminal-coordinate operations for already-rasterized art and UI. Pixel-space
+coverage loops use `grid.column`, `grid.row`, and `grid.world`. Standalone drawing
+studies can use `with projection(grid): ...`; avoid module-global overrides.
+
+The classic renderer changes detail at coarse/fine scales rather than stretching
+finished characters. Stained coverage and raster pigment samples use the same
+world-space grid. Frames retain their immutable grid for later tool overlays.
+`hit_test(..., grid=...)` and the interactive controller use inverse projection,
+including for tiny phages and foreground priority over enclosed cargo.
+
+`check_style(..., camera=camera)` checks purity, fallbacks, determinism, and physical
+viewport dimensions at any scale. The gallery and benchmark accept
+`--magnification`; repeat the gallery option for a same-specimen comparison:
+
+```sh
+python tools/gallery.py --scene crowding --at 12 --style classic --magnification overview --magnification normal --magnification detail --output docs/magnification.svg
+python tools/gallery.py --scene complement --at 12 --style classic --style raster --output docs/complement.svg
+```
+
+Normal rendering retains its original projection. Startup overview creates a
+larger specimen to fill its wider field; detail clips the original specimen and
+starts near a free microbe. Continuous zoom and runtime scale switching remain
+possible future work. Raster shading remains experimental and can reduce FPS;
+measure the desired style, scale, terminal size, and density before optimizing.

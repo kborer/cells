@@ -282,7 +282,7 @@ class EventDirector:
         if e.phase != "feeding":
             return
         mx, my = e.mouth
-        floor = max(3, world._limits()[1] // 2)
+        floor = max(4, world._limits()[1] // 2)
         for b in list(world.bacteria.values()):
             if (
                 e.eaten < 3
@@ -338,7 +338,7 @@ class EventDirector:
         # Remove at most three, and preserve a viable microbial population.
         if e.age >= 35:
             for ident in list(e.held):
-                if len(world.bacteria) > max(3, world._limits()[1] // 2):
+                if len(world.bacteria) > max(4, world._limits()[1] // 2):
                     del world.bacteria[ident]
                 e.held.remove(ident)
 

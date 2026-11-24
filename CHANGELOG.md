@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Make microbial capacity, initial placement, growth, and soft avoidance account
+  for organism footprints; shorten flagella near neighboring bodies and retain
+  edge-based immigration when space is tight (#23).
+- Add overview/normal/detail magnification presets and H/J/K/L panning. Shared
+  camera projection preserves simulation geometry, all presentation styles,
+  ASCII snapshots, foreground selection, and interactive tool coordinates (#30).
+- Add sparse complement coating, enhanced immune recognition, selective pore
+  formation/lysis, Inspect/observation feedback, and `--no-complement` (#51).
+
 - Add shiwng’s seeded half-block/line-art comparison preview, adapted to the
   shared drawing modules without changing runtime rendering.
 

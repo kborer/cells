@@ -9,6 +9,7 @@ from .geometry import Target, hit_test, targets
 from .catalog import MICROBES
 from .models import ASPECT, State, clamp, division_stage, viral_stage
 from .frame import Ink
+from .viewport import Camera, Grid
 
 TOOLS = ("Inspect", "Lyse", "Feed", "Stir")
 
@@ -50,6 +51,12 @@ def describe(world, target):
         label = MICROBES[obj.kind].label
         if obj.entry is not None:
             phase = "arriving from edge"
+        if obj.complement is not None:
+            phase += (
+                " / complement pores"
+                if obj.complement_sensitive and obj.complement.age >= 10
+                else " / complement-coated"
+            )
         return f"{label} #{obj.id} / {phase}"
     if target.kind == "red":
         return "Red blood cell / drifting / no nucleus"
@@ -74,6 +81,20 @@ class Interaction:
     tracking: bool = False
     message: str = ""
     message_until: float = 0.0
+    camera: Camera | None = None
+
+    def grid(self, world):
+        return self.camera.grid(world) if self.camera is not None else Grid()
+
+    def dimensions(self, world):
+        return (
+            (self.camera.columns, self.camera.rows)
+            if self.camera is not None
+            else (round(world.width), round(world.height / ASPECT))
+        )
+
+    def hit(self, world):
+        return hit_test(world, self.col, self.row, grid=self.grid(world))
 
     def resize(self, columns, rows):
         self.col = int(clamp(self.col, 0, max(0, columns - 1)))
@@ -81,16 +102,16 @@ class Interaction:
 
     def aim(self, world, col, row):
         self.col, self.row = int(col), int(row)
-        self.resize(round(world.width), round(world.height / ASPECT))
+        self.resize(*self.dimensions(world))
         self.tracking = False
-        self.selected = hit_test(world, self.col, self.row)
+        self.selected = self.hit(world)
 
     def cycle(self, world):
         available = [
             t
             for t in targets(world)
-            if 0 <= t.center[0] < world.width
-            and 0 <= t.center[1] / ASPECT < world.height / ASPECT - 1
+            if 0 <= self.grid(world).column(t.center[0]) < self.dimensions(world)[0]
+            and 0 <= self.grid(world).row(t.center[1]) < self.dimensions(world)[1] - 1
         ]
         if not available:
             self.selected = None
@@ -115,33 +136,33 @@ class Interaction:
             self.tracking = False
         if self.tracking and self.selected is not None:
             x, y = self.selected.center
-            self.col, self.row = round(x), round(y / ASPECT)
-        self.resize(round(world.width), round(world.height / ASPECT))
+            self.col, self.row = self.grid(world).point(x, y)
+        self.resize(*self.dimensions(world))
 
     def apply(self, world, now):
         self.follow(world)
+        wx, wy = self.grid(world).world(self.col, self.row)
         if self.tool == 0:
             if not self.tracking:
-                self.selected = hit_test(world, self.col, self.row)
+                self.selected = self.hit(world)
             self.tracking = self.selected is not None
             self.message = describe(world, self.selected)
         elif self.tool == 1:
-            target = self.selected if self.tracking else hit_test(world, self.col, self.row)
+            target = self.selected if self.tracking else self.hit(world)
             identity = describe(world, target)
-            self.message = (
-                world.lab.lyse(world, target, self.col, self.row * ASPECT) + " / " + identity
-            )
+            self.message = world.lab.lyse(world, target, wx, wy) + " / " + identity
             self.selected = target
         elif self.tool == 2:
-            self.message = world.lab.feed(world, self.col, self.row * ASPECT)
+            self.message = world.lab.feed(world, wx, wy)
             self.tracking = False
         else:
-            self.message = world.lab.stir(world, self.col, self.row * ASPECT)
+            self.message = world.lab.stir(world, wx, wy)
             self.tracking = False
         self.message_until = now + 4
 
     def click(self, world, col, row, now):
-        if row >= round(world.height / ASPECT) - 1 or col < 0 or row < 0 or col >= world.width:
+        columns, rows = self.dimensions(world)
+        if row >= rows - 1 or col < 0 or row < 0 or col >= columns:
             return  # The toolbar is never a target for destructive actions.
         self.aim(world, col, row)
         self.apply(world, now)

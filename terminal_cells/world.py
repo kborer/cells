@@ -8,6 +8,8 @@ from .events import EventDirector
 from .geometry import obstacles
 from .catalog import MICROBES, PHAGE_HOST_KINDS
 from .lab import Laboratory
+from . import crowding
+from .complement import Complement, recognition
 from .models import (
     ASPECT,
     BACTERIAL_KINDS,
@@ -60,11 +62,13 @@ class World:
         scene: str = "mixed",
         rare_events: bool = True,
         microscope_events: bool = True,
+        complement: bool = True,
     ):
         if scene not in ("mixed", "blood", "microbial"):
             raise ValueError("unknown scene")
         self.events = EventDirector(seed, rare_events, microscope_events)
         self.lab = Laboratory()
+        self.complement = Complement(enabled=complement and scene != "microbial")
         self.scene = scene
         self.rng = random.Random(seed)
         self.seed = seed
@@ -109,11 +113,16 @@ class World:
 
     def _limits(self) -> tuple[int, int, int, int]:
         area = self.width * self.height
+        mean_footprint = sum(
+            crowding.area(kind) * weight
+            for kind, weight in zip(MICROBE_KINDS, self.microbe_weights)
+        ) / sum(self.microbe_weights)
+        microbial_capacity = round(area / 1100 * self.density * 45 / mean_footprint)
         return (
             0
             if self.scene == "microbial"
             else max(1 if area < 3000 else 2, min(8, round(area / 12500 * self.density))),
-            max(4, min(90, round(area / 1100 * self.density))),
+            max(4, min(90, microbial_capacity)),
             0 if self.scene == "microbial" else max(1, min(12, round(area / 4500 * self.density))),
             max(5, min(100, round(area / 500 * self.density))),
         )
@@ -124,7 +133,7 @@ class World:
         for index in range(cell_count):
             self._add_cell(index, cell_count)
         for _ in range(max(4, round(bacteria_count * self.rng.uniform(0.65, 1)))):
-            self._add_bacterium()
+            self._add_bacterium(admit=True)
         # Put one microbe in the path of each macrophage: the first encounter
         # should not require watching an empty slide for a minute.
         for cell, bacterium in zip(self.cells, self.bacteria.values()):
@@ -179,8 +188,13 @@ class World:
         )
 
     def _add_bacterium(
-        self, parent: Bacterium | None = None, kind: str | None = None, arrival: bool = False
-    ) -> None:
+        self,
+        parent: Bacterium | None = None,
+        kind: str | None = None,
+        arrival: bool = False,
+        *,
+        admit: bool = False,
+    ) -> bool:
         ident = self.next_id
         self.next_id += 1
         if parent:
@@ -195,7 +209,7 @@ class World:
                 if all(math.hypot(x - c.x, y - c.y) > c.radius + 2 for c in self.cells):
                     break
                 x, y = self.rng.uniform(0, self.width), self.rng.uniform(0, self.height)
-        self.bacteria[ident] = Bacterium(
+        candidate = Bacterium(
             ident,
             x,
             y,
@@ -205,14 +219,25 @@ class World:
             self.time + self.rng.uniform(1, 4),
             self.time + self.rng.uniform(25, 65),
         )
-        child = self.bacteria[ident]
+        candidate.complement_sensitive = (
+            parent.complement_sensitive
+            if parent is not None
+            else MICROBES[kind].bacterial and self.rng.random() < 0.45
+        )
+        if admit and len(self.bacteria) >= 2 and not crowding.has_room(self, candidate):
+            return False
+        self.bacteria[ident] = candidate
+        child = candidate
         if parent:
             child.angle = parent.angle
         child.speed *= MICROBES[kind].speed
         if arrival:
             self._begin_entry(child)
         else:
+            if parent is None:
+                crowding.place(self, child)
             self._exclude(child, bacterial_padding(child))
+        return True
 
     def _edge_position(self, margin: float = 1) -> tuple[float, float, float]:
         side = self.rng.randrange(4)
@@ -355,10 +380,10 @@ class World:
         if len(self.bacteria) < target or missing:
             choices = missing or list(MICROBE_KINDS)
             weights = [self.microbe_weights[MICROBE_KINDS.index(k)] for k in choices]
-            if len(self.bacteria) < target * 2:
-                self._add_bacterium(
-                    kind=self.rng.choices(choices, weights=weights)[0], arrival=True
-                )
+            added = len(self.bacteria) < target * 2 and self._add_bacterium(
+                kind=self.rng.choices(choices, weights=weights)[0], arrival=True, admit=True
+            )
+            if added:
                 self.arrivals += 1
             elif missing and not any(b.leaving for b in self.bacteria.values()):
                 # Make space gradually: an abundant free swimmer leaves through
@@ -366,11 +391,10 @@ class World:
                 candidates = [
                     b
                     for b in self.bacteria.values()
-                    if b.owner is None
-                    and b.infection is None
-                    and b.entry is None
-                    and counts[b.kind] > 2
+                    if b.owner is None and b.infection is None and b.entry is None
                 ]
+                repeated = [b for b in candidates if counts[b.kind] > 1]
+                candidates = repeated or (candidates if len(self.bacteria) > 3 else [])
                 if candidates:
                     leaver = max(
                         candidates,
@@ -714,7 +738,9 @@ class World:
         self.infections += 1
         self.phage_replenish_at = self.time + 45
 
-    def _lyse(self, bacterium: Bacterium, *, progeny: int | None = None) -> None:
+    def _lyse(
+        self, bacterium: Bacterium, *, progeny: int | None = None, cause: str = "phage"
+    ) -> None:
         self._add_nutrient(bacterium.x, bacterium.y, 3)
         if bacterium.infection is not None and bacterium.infection.age >= 7:
             x, y, angle = attachment_pose(bacterium)
@@ -730,8 +756,11 @@ class World:
             )
             self.spent_capsids = self.spent_capsids[-64:]
         self.bacteria.pop(bacterium.id, None)
-        self.bursts.append(Burst(bacterium.x, bacterium.y, bacterium.angle))
-        self.lysed += 1
+        self.bursts.append(Burst(bacterium.x, bacterium.y, bacterium.angle, cause=cause))
+        if cause == "complement":
+            self.complement.lysed += 1
+        else:
+            self.lysed += 1
         # Release any macrophage pursuing this host; ingestion itself suppresses
         # the viral cycle, so phages never burst out through an enclosing cell.
         for cell in self.cells:
@@ -979,10 +1008,13 @@ class World:
                 for b in self.bacteria.values()
                 if b.owner is None
                 and b.entry is None
-                and math.hypot(b.x - cell.x, b.y - cell.y) < 27
+                and math.hypot(b.x - cell.x, b.y - cell.y) < 27 + 13 * recognition(b)
             ]
             if nearby:
-                target = min(nearby, key=lambda b: math.hypot(b.x - cell.x, b.y - cell.y))
+                target = min(
+                    nearby,
+                    key=lambda b: math.hypot(b.x - cell.x, b.y - cell.y) / (1 + recognition(b)),
+                )
                 target.owner = cell.id
                 cell.target = target.id
                 cell.state = State.APPROACH
@@ -1009,7 +1041,7 @@ class World:
                 a, b = microbe_axes(target)
                 cell.capture_a, cell.capture_b = a * size, b * size
                 cell.reach = 0
-            elif cell.elapsed > 25 or distance > 35:
+            elif cell.elapsed > 25 or distance > 35 + 13 * recognition(target):
                 self._release(cell)
         elif cell.state is State.ENCLOSE and target:
             progress = clamp(cell.elapsed / ENCLOSE_TIME, 0, 1)
@@ -1097,6 +1129,7 @@ class World:
             or microbe.leaving
             or microbe.entry is not None
             or len(self.bacteria) >= limit
+            or not crowding.has_room(self, microbe)
         ):
             return
         spec = MICROBES[microbe.kind]
@@ -1244,8 +1277,10 @@ class World:
     def update(self, dt: float = STEP, *, events: bool = True) -> None:
         self.time += dt
         self.lab.update(self, dt)
+        self.complement.update(self, dt)
         _, bacteria_count, _, _ = self._limits()
         self._update_nutrients(dt)
+        neighbors = crowding.Neighbors(self)
         for bacterium in list(self.bacteria.values()):
             if self.events.trapped(bacterium):
                 continue
@@ -1267,6 +1302,9 @@ class World:
             fx, fy = self.events.flow(bacterium.x, bacterium.y)
             vx += fx
             vy += fy
+            sx, sy = neighbors.drift(bacterium)
+            vx += sx
+            vy += sy
             boost = self._microbe_behavior(bacterium, dt)
             motility = (
                 1 if bacterium.infection is None else 1 - 0.88 * smooth(bacterium.infection.age / 7)

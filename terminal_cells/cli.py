@@ -49,10 +49,19 @@ def advance_frame(world: World, accumulator: float, *, events: bool = True) -> f
 
 
 class TerminalRenderer:
-    def __init__(self, screen, theme: str, color: str = "auto", backend=None, fill: bool = False):
+    def __init__(
+        self,
+        screen,
+        theme: str,
+        color: str = "auto",
+        backend=None,
+        fill: bool = False,
+        palette=None,
+    ):
         self.curses = backend if backend is not None else load_curses()
         self.color = color
         self.theme = theme
+        self.palette = tuple(palette if palette is not None else PALETTES[theme])
         self.screen = screen
         self.previous: Frame | None = None
         self.attributes: dict[Ink, int] = {ink: 0 for ink in Ink}
@@ -60,13 +69,13 @@ class TerminalRenderer:
         # (glyph ink, tint) combination; otherwise bodies stay glyph-only.
         self.fill = False
         self._palette: list[int] = []
-        self._pairs: dict[tuple[Ink, Ink], int] = {}
+        self._pairs: dict[tuple[Ink, Ink] | tuple[int, int], int] = {}
         self._colors(theme)
         if fill and self._palette and theme != "mono":
             # Reserve a pair for every (glyph ink, tint) combination up front, so
             # tinting never runs out of pairs halfway through a slide. This stays
             # below 256, which also fits the 8-bit pair field of A_COLOR.
-            needed = len(Ink) + (len(Ink) - len(FILL_INKS)) * len(FILL_INKS)
+            needed = len(Ink) + len(Ink) * len(FILL_INKS)
             pairs = getattr(self.curses, "COLOR_PAIRS", 0)
             self.fill = self.curses.COLORS >= 256 and pairs > needed
 
@@ -95,13 +104,13 @@ class TerminalRenderer:
             background = -1
         except curses.error:
             pass
-        for ink, (extended, basic) in zip(Ink, PALETTES[theme]):
+        for ink, (extended, basic) in zip(Ink, self.palette):
             try:
                 curses.init_pair(ink.value, extended if curses.COLORS >= 256 else basic, background)
                 self.attributes[ink] = curses.color_pair(ink.value)
             except curses.error:
                 pass
-        self._palette = [extended for extended, _ in PALETTES[theme]]
+        self._palette = [extended for extended, _ in self.palette]
 
     def _attribute(self, ink: Ink, bg: Ink | None) -> int:
         if bg is None or not self.fill:
@@ -121,6 +130,22 @@ class TerminalRenderer:
             self._pairs[key] = self.curses.color_pair(number)
         return self._pairs[key]
 
+    def _indexed_attribute(self, pixel) -> int:
+        if not self.fill:
+            return self.attributes[pixel.ink]
+        key = pixel.color, pixel.background
+        if key not in self._pairs:
+            number = len(Ink) + 1 + len(self._pairs)
+            try:
+                if number >= min(256, self.curses.COLOR_PAIRS):
+                    raise self.curses.error()
+                self.curses.init_pair(number, pixel.color, pixel.background)
+            except self.curses.error:
+                self.fill = False
+                return self.attributes[pixel.ink]
+            self._pairs[key] = self.curses.color_pair(number)
+        return self._pairs[key]
+
     def draw(self, frame: Frame) -> None:
         curses = self.curses
         previous = self.previous
@@ -137,18 +162,26 @@ class TerminalRenderer:
                 # Group adjacent changed characters with the same attributes.
                 start = x
                 chars = []
-                style = pixel.ink, pixel.bold, pixel.bg
+                style = pixel.ink, pixel.bold, pixel.bg, pixel.color, pixel.background
                 while x < frame.width:
                     current = row[x]
-                    if (current.ink, current.bold, current.bg) != style:
+                    if (
+                        current.ink,
+                        current.bold,
+                        current.bg,
+                        current.color,
+                        current.background,
+                    ) != style:
                         break
                     if previous and previous.pixels[y][x] == current:
                         break
                     chars.append(current.char)
                     x += 1
-                attributes = self._attribute(pixel.ink, pixel.bg) | (
-                    curses.A_BOLD if pixel.bold else 0
-                )
+                attributes = (
+                    self._indexed_attribute(pixel)
+                    if pixel.color is not None
+                    else self._attribute(pixel.ink, pixel.bg)
+                ) | (curses.A_BOLD if pixel.bold else 0)
                 try:
                     self.screen.addstr(y, start, "".join(chars), attributes)
                 except curses.error:
@@ -192,12 +225,16 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
         microscope_events=not args.calm,
     )
     interaction = Interaction(columns // 2, rows // 2, mouse=mouse) if args.interactive else None
-    renderer = TerminalRenderer(screen, args.theme, args.color, fill=args.fill)
     style = get_style(args.style)
+    fill_requested = args.fill or style.default_fill
+    renderer = TerminalRenderer(
+        screen, args.theme, args.color, fill=fill_requested, palette=style.palette(args.theme)
+    )
     unicode = use_unicode(args.unicode, screen.encoding)
     paused, help_visible, stats = False, False, args.stats
     help_offset = 0
-    help_content = help_lines(args.interactive)
+    help_content = help_lines(args.interactive, legend=style.legend)
+    help_inks = HELP_INKS | (dict(style.legend) if style.legend is not None else {})
     notice, notice_until = "", 0.0
     counters = (world.engulfed, world.divisions, world.infections, world.lysed, world.arrivals)
     speed = args.speed
@@ -299,7 +336,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
         if args.observe and world.events.caption:
             notice, notice_until = world.events.caption, tick + 1
         frame = style.render(
-            world, RenderOptions.resolve(renderer.capabilities(unicode), fill=args.fill)
+            world, RenderOptions.resolve(renderer.capabilities(unicode), fill=fill_requested)
         )
         if too_small:
             overlay(frame, ["cells", "Enlarge to at least 32 x 12.", "q to quit"])
@@ -307,7 +344,7 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
             lines = [help_content[0], "j/k or arrows scroll; ? closes", ""] + help_content[
                 2 + help_offset :
             ]
-            overlay(frame, lines, [HELP_INKS.get(line, Ink.TEXT) for line in lines])
+            overlay(frame, lines, [help_inks.get(line, Ink.TEXT) for line in lines])
         else:
             if stats:
                 frame.text(
@@ -453,7 +490,10 @@ def parser() -> argparse.ArgumentParser:
         help="slower motion, lower FPS, and no micropipette; explicit speed/fps win",
     )
     display.add_argument(
-        "--style", choices=tuple(STYLES), default=DEFAULT_STYLE, help="presentation style"
+        "--style",
+        choices=tuple(STYLES),
+        default=DEFAULT_STYLE,
+        help="presentation style; stained and raster are experimental",
     )
     display.add_argument(
         "--theme",
@@ -554,7 +594,7 @@ def diagnostics(args) -> dict:
         "microscope_events": not args.no_events and not args.calm,
         "interactive_requested": args.interactive,
         "color_requested": use_color(args.color),
-        "fill_requested": args.fill,
+        "fill_requested": args.fill or get_style(args.style).default_fill,
         "style": args.style,
         "unicode_requested": use_unicode(args.unicode, sys.stdout.encoding),
         "note": "Capabilities are requested settings; actual colors depend on terminal support.",

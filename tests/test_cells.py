@@ -1442,6 +1442,8 @@ class TerminalTests(unittest.TestCase):
         self.session(
             b"?jjkk?s",
             (
+                "--style",
+                "raster",
                 "--scene",
                 "microbial",
                 "--calm",
@@ -1456,6 +1458,10 @@ class TerminalTests(unittest.TestCase):
             ),
             resize=True,
         )
+
+    def test_stained_and_raster_fallbacks_restore_terminal(self):
+        self.session(extra=("--style", "stained", "--duration", ".3"))
+        self.session(extra=("--style", "raster", "--ascii", "--color", "never", "--duration", ".3"))
 
     def test_fast_simulation_still_quits_responsively(self):
         elapsed, _ = self.session(b"q", ("--speed", "8", "--fps", "1", "--density", "3"))

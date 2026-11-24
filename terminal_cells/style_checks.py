@@ -35,6 +35,14 @@ def check_style(style, world, options):
             assert pixel.bg is None or isinstance(pixel.bg, Ink), (
                 "Background must be a semantic Ink"
             )
+            if pixel.color is not None or pixel.background is not None:
+                caps = options.capabilities
+                assert (
+                    caps is not None and caps.colors >= 256 and caps.backgrounds and options.fill
+                ), "Style ignored indexed-color fallback"
+                assert all(
+                    isinstance(c, int) and 0 <= c <= 255 for c in (pixel.color, pixel.background)
+                ), "Invalid indexed color"
             if not options.unicode:
                 assert pixel.char.isascii(), "Style ignored ASCII fallback"
             if options.capabilities is not None and not options.capabilities.blocks:
@@ -42,7 +50,9 @@ def check_style(style, world, options):
                     "Style ignored block-glyph fallback"
                 )
             if not options.fill:
-                assert pixel.bg is None, "Style ignored background fallback"
+                assert pixel.bg is None and pixel.background is None, (
+                    "Style ignored background fallback"
+                )
     saved = pickle.dumps(frame)
     repeated = style.render(world, options)
     assert repeated is not frame, "Return a fresh frame so UI overlays cannot corrupt cached output"

@@ -4,7 +4,7 @@ setuptools>=77
 wheel>=0.45
 twine>=7.0.0
 Pillow>=12.3.0
-ruff==0.17.5
+ruff==0.17.6
 hypothesis>=6.168.5
 
 coverage>=7.16.2

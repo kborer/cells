@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Add shiwng’s seeded half-block/line-art comparison preview, adapted to the
+  shared drawing modules without changing runtime rendering.
+
 - Name the filled-glyph presentation `stained` and add a separate experimental
   `raster` style that shades the whole specimen, with pink red cells, pale immune
   cells, purple nuclei, and green microbes/filaments on a light slide.

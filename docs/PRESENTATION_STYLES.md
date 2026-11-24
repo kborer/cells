@@ -173,3 +173,14 @@ sampled stages. SVG output preserves foreground and background colors; `.txt` an
 stdout always use plain ASCII. `--ascii`, `--theme light`, and `--theme mono` help
 compare fallbacks. Labels record scene, style, seed, actual simulation time, and
 size. Available scenes are division, ingestion, infection, overlap, crowding, and blood-smear.
+
+## Half-block comparison study
+
+`python tools/preview.py` also writes [halfblock.svg](halfblock.svg), contributed
+by [shiwng](https://github.com/kborer/cells/pull/38). It compares the same seeded
+slide as line art and as two vertically sampled rows per terminal cell. This is
+an offline silhouette experiment, not a selectable runtime style. Each output
+cell uses one ink: when the two samples differ, the lower sample wins. It does
+not yet preserve two independent colors or replace strokes with filled anatomy.
+Sampling overrides are confined to the preview and restored before ordinary
+rendering. Existing ASCII/Unicode comparison previews remain available.

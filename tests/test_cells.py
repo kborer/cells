@@ -1475,7 +1475,9 @@ class TerminalTests(unittest.TestCase):
             resize=True,
         )
         self.assertIn(b"? help", output)
-        self.assertIn(b"1006", output)
+        # Darwin curses may enable legacy 1000 rather than SGR 1006 reporting.
+        self.assertTrue(any(mode in output for mode in (b"1000", b"1006")))
+        self.assertIn(b"\x1b[?1049l", output)
 
     def test_interactive_keyboard_tools_and_resize(self):
         _, output = self.session(

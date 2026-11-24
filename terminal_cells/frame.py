@@ -165,6 +165,10 @@ class Pixel:
     bold: bool = False
     # Optional background tint; None keeps the terminal background.
     bg: Ink | None = None
+    # Optional xterm-256 colors for bounded-palette raster frames. Semantic ink
+    # remains available for inspection, effect classification, and fallbacks.
+    color: int | None = None
+    background: int | None = None
 
 
 EMPTY = Pixel()
@@ -191,6 +195,29 @@ class Frame:
                 # Glyphs drawn over a filled body stay inside it.
                 bg = self.pixels[y][x].bg
             self.pixels[y][x] = Pixel(char, ink, bold, bg if self.fill else None)
+
+    def indexed(
+        self,
+        x: int,
+        y: int,
+        char: str,
+        color: int,
+        background: int,
+        ink: Ink = Ink.DEBRIS,
+        bold: bool = False,
+    ) -> None:
+        """Paint an indexed-color tile; styles must negotiate 256-color support."""
+        if not self.fill:
+            raise ValueError("Indexed tiles require background support")
+        if not (
+            isinstance(color, int)
+            and isinstance(background, int)
+            and 0 <= color <= 255
+            and 0 <= background <= 255
+        ):
+            raise ValueError("Indexed colors must be integers in 0..255")
+        if 0 <= x < self.width and 0 <= y < self.height:
+            self.pixels[y][x] = Pixel(char, ink, bold, None, color, background)
 
     def point(self, x: float, y: float, char: str, ink: Ink, bold: bool = False) -> None:
         self.put(round(x), round(y / ASPECT), char, ink, bold)

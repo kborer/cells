@@ -8,21 +8,34 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from terminal_cells import World, render  # noqa: E402
+from terminal_cells import World  # noqa: E402
+
+
+from terminal_cells.capabilities import RenderCapabilities  # noqa: E402
+from terminal_cells.styles import STYLES, RenderOptions, get_style  # noqa: E402
 
 
 def main():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("--samples", type=int, default=100)
+    cli.add_argument("--style", choices=tuple(STYLES), default="classic")
+    cli.add_argument("--ascii", action="store_true")
+    cli.add_argument("--fill", action="store_true")
     args = cli.parse_args()
     if args.samples < 2:
         cli.error("--samples must be at least 2")
+    style = get_style(args.style)
+    caps = RenderCapabilities(
+        unicode=not args.ascii, colors=256, backgrounds=True, blocks=not args.ascii, color_pairs=256
+    )
+    options = RenderOptions.resolve(caps, fill=args.fill or style.default_fill)
+    print(f"style {style.name}; Unicode {options.unicode}; fill {options.fill}")
     for width, height in ((80, 24), (120, 40), (200, 60)):
         world = World(width, height, 42)
         for _ in range(1800):
             world.update()
         results = []
-        for operation in (world.update, lambda: render(world)):
+        for operation in (world.update, lambda: style.render(world, options)):
             timings = []
             for _ in range(args.samples):
                 start = time.perf_counter()

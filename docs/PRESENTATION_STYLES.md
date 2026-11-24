@@ -3,7 +3,12 @@
 The simulation is shared; styles determine how it looks. `cells` and
 `cells --style classic` use the original glyph renderer. `--fill` remains an
 optional classic enhancement, and `--theme` still selects a color palette.
-No microscopy style is implemented yet.
+`cells --style stained` opts into an experimental stained/block presentation;
+`--theme light` suits a light terminal background. It automatically requests body
+tints and falls back to classic drawing when color, block glyphs, or sufficient
+color pairs are unavailable. Snapshots remain plain ASCII in every style.
+`cells --style raster` uses a separate whole-specimen shaded rendering path; it
+is described below. The earlier unreleased `microscopy` name is now `stained`.
 
 ## Boundaries
 
@@ -48,7 +53,10 @@ changing the world.
 ## Adding a style
 
 Implement `PresentationStyle.render(world, options)` in a separate module and
-register an instance under a unique name in `STYLES`. CLI choices derive from that
+register an instance under a unique name in `STYLES`. Set `default_fill` to request
+background tints automatically, and implement `palette(theme)` to return a full
+semantic-ink palette (256-color/basic-color pairs). Preserve species/effect color
+meanings when changing stain backgrounds. CLI choices derive from that
 registry. The stateless classic adapter is the starting example. Keep any future
 caches bounded; do not retain worlds in the shared style instance. Implement
 `cache_info()` returning a mapping of cache names to `CacheInfo(size, limit)`;
@@ -62,26 +70,80 @@ at the normal 30 FPS target. Use public `World.obstacles()` / `World.is_blocked(
 `geometry.py`. Selection and nuclear foreground now share geometry and never
 render a classic frame. Preserve that shared foreground order in new styles.
 
-## Planned microscopy experiment
+## Experimental stained style
 
-[Issue #35](https://github.com/kborer/cells/issues/35) links visual references and
-[a working adaptation in Pocket](https://github.com/gordol/n810-revival/pull/17).
-Its `pocket/shell/apps/cells/slide.py` combines stained raster shapes with anatomy
-glyphs, stable specimen texture, pale-centered red blood cells, and half/quarter
-blocks chosen from a 2-by-4 sample grid per terminal character. Its GUI frontend
-and native compositor are separate from our terminal-only scope.
+[Compare classic and stained](stained.svg), generated with
+`python tools/gallery.py --scene ingestion --at 9 --style classic --style stained --theme light --fill --output docs/stained.svg`.
 
-Prototype that as an optional style after this foundation. Start with the shared
-semantic-color frame; the current curses backend supports finite 256-color pairs,
-not arbitrary RGB pairs. If the experiment needs true color or a larger palette,
-extend the shared frame/output contract with explicit capability negotiation and
-fallbacks rather than putting terminal escape sequences in a style. Preserve our
-full division and ingestion animations. Pocket's six rendered frames per second are not
-evidence of performance at our normal frame rate.
+[Issue #35](https://github.com/kborer/cells/issues/35) and the
+[Pocket adaptation](https://github.com/gordol/n810-revival/pull/17) inspired this
+terminal-only experiment. `stained.py` independently paints four coverage
+samples per character into half/quarter blocks, with specimen-local deterministic
+granules, pale red-cell centers, and stained cytoplasm and nuclei. It uses the
+shared geometry and composites the existing organelles, capture effects, mitosis,
+viral cycle, and tool effects. DNA-trap sources retain their canonical fade.
 
-Keep `classic` the default while comparing readability and performance. Live style
-switching, external plugins, and a pixel GUI are future decisions, not requirements
-for the first optional style.
+The prototype uses finite semantic-color pairs, not true-color raster output.
+Species and transient-effect hues retain their classic meanings; only cytoplasm
+and stain backgrounds differ. The backend reserves up to 246 color pairs, below
+the 256-pair limit. ASCII, basic-color, colorless, mono-theme, and plain snapshot
+output use classic drawing. A failed tint allocation also triggers that fallback.
+
+Classic remains the default. The experiment does more work per frame: in one
+local dense-scene measurement, classic/stained rendering took approximately
+4/13 ms at 80x24, 9/22 ms at 120x40, and 20/51 ms at 200x60, excluding terminal
+writes. These are observations, not portable limits. Large dense views can fall
+below 30 FPS; caching and finer stain design are further experiments. Measure
+styles on your machine with:
+
+```sh
+python tools/benchmark.py --style stained --samples 100
+python tools/benchmark.py --style classic --fill --samples 100
+```
+
+Live switching, external plugins, a pixel GUI, and a true-color backend remain
+future decisions. The stained prototype is not a replacement for classic.
+
+## Experimental raster style
+
+[View the raster blood smear](raster.svg). Generate it with:
+
+```sh
+python tools/gallery.py --scene blood-smear --at 0 --style raster --output docs/raster.svg
+```
+
+`raster.py` paints a shared specimen field at two horizontal by four vertical
+samples per terminal cell, then approximates each tile using foreground color,
+background color, and a block glyph. Every ordinary entity family is rendered
+into the field, including red cells, immune cells, microbes, phages, fungi, food,
+and debris. Human cells are not simply filled behind classic outlines. Shading
+and granules are anchored to the specimen; drawing never consumes simulation RNG.
+
+The visual target is the terminal panel in the
+[Pocket comparison](https://github.com/kborer/cells/issues/35#issuecomment-7073405367).
+This is an independent implementation using shared model geometry and a bounded
+14-pigment xterm palette, so it approximates rather than reproduces that project's
+true-color output. The light field is part of the image, regardless of terminal
+background. A style-specific legend explains its coherent stain colors.
+
+Mitosis dissolves and reforms nuclear pigment; canonical chromosome/spindle marks
+remain readable. Capture ownership and nuclear foreground are preserved. Viral
+replication/assembly/lysis marks, DNA traps, glass, visitors, and tool fragments
+remain visible. Glyphs for explanatory genetic events may be composited over the
+raster; ordinary bacteria, membranes, and organelles are pigment shapes/strokes.
+
+`Frame.indexed()` supplies explicit 0..255 foreground/background colors while
+retaining each pixel's semantic ink. Plain UI overlays replace indexed tiles.
+Fourteen pigments have at most 196 ordered pairs; together with 41 semantic UI
+pairs this stays below 256. The backend caches pairs without reassigning them,
+compares indexed colors during incremental output, and falls back after allocation
+failure. Unsupported color/glyph output and snapshots use classic drawing.
+The tile cache is bounded to 2,048 pigment patterns and retains no worlds.
+
+Measure performance using `python tools/benchmark.py --style raster`. Sampling
+and quantization add work and can reduce FPS in large or dense views. Increasing
+pigment count beyond the pair budget requires a different backend strategy;
+`COLORTERM` alone does not turn the curses renderer into a true-color backend.
 
 ## Run contributor contract checks
 
@@ -110,7 +172,7 @@ built worlds, or omit it to include all styles. Omitting `--at` shows the scene'
 sampled stages. SVG output preserves foreground and background colors; `.txt` and
 stdout always use plain ASCII. `--ascii`, `--theme light`, and `--theme mono` help
 compare fallbacks. Labels record scene, style, seed, actual simulation time, and
-size. Available scenes are division, ingestion, infection, overlap, and crowding.
+size. Available scenes are division, ingestion, infection, overlap, crowding, and blood-smear.
 
 ## Half-block comparison study
 

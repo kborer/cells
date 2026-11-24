@@ -874,7 +874,7 @@ INTERACTIVE_HELP = [
 ]
 
 
-def help_lines(interactive: bool = False) -> list[str]:
+def help_lines(interactive: bool = False, legend=None) -> list[str]:
     return (
         GENERAL_HELP
         + (INTERACTIVE_HELP if interactive else [])
@@ -883,7 +883,7 @@ def help_lines(interactive: bool = False) -> list[str]:
             "Shapes identify species in limited-color modes.",
             "",
         ]
-        + [label for label, _ in LEGEND]
+        + [label for label, _ in (LEGEND if legend is None else legend)]
     )
 
 

@@ -13,9 +13,11 @@ def escape(text):
     return str(text).replace("\\", r"\e").replace("-", r"\-")
 
 
-def main():
+def render(version=None):
+    """Return the complete manual without writing files or changing the CLI."""
+    version = __version__ if version is None else version
     lines = [
-        f'.TH CELLS 1 "" "cells {__version__}" "User Commands"',
+        f'.TH CELLS 1 "" "cells {version}" "User Commands"',
         ".SH NAME",
         "cells \\- a living microscope slide in your terminal",
         ".SH SYNOPSIS",
@@ -63,8 +65,22 @@ def main():
         ".SH EXIT STATUS",
         "0 on success; 1 on terminal failure; 2 for invalid usage or missing curses.",
     ]
+    return "\n".join(lines) + "\n"
+
+
+def main():
+    import argparse
+
+    cli = argparse.ArgumentParser(description=__doc__)
+    cli.add_argument("--check", action="store_true", help="fail if the checked-in manual is stale")
+    args = cli.parse_args()
     destination = Path(__file__).resolve().parents[1] / "docs/cells.1"
-    destination.write_text("\n".join(lines) + "\n")
+    content = render()
+    if args.check:
+        if not destination.is_file() or destination.read_text() != content:
+            cli.exit(1, "Manual is stale; run python tools/manpage.py\n")
+    else:
+        destination.write_text(content)
 
 
 if __name__ == "__main__":

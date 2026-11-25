@@ -12,6 +12,13 @@ long runs varied. Rare rotifer visitors, neutrophil DNA traps, and nutrient
 micropipettes add occasional longer vignettes. Use `--observe` for captions or
 `--no-events` to disable them; `--calm` excludes micropipettes.
 
+Complement can coat bacteria for immune recognition or damage susceptible
+membranes; `--no-complement` disables it. Use `--magnification overview` for a wider
+community or `detail` for bacterial anatomy, with H/J/K/L to pan. Classic art is
+the default; `--style stained` adds filled bodies and `--style raster` selects
+experimental shaded whole-specimen rendering. Unsupported terminals fall back
+to classic artwork and its legend.
+
 This is biological illustration with exaggerated sizes and timing, rather than
 a scientific model.
 
@@ -56,7 +63,7 @@ key. Terminal resizing is supported.
 
 Opt into microscope tools with `--interactive`: 1 Inspect, 2 Lyse, 3 Feed, and
 4 Stir. Left-click or use arrows/hjkl, Tab, and Enter. A single bottom line shows
-`? help`, leaving the rest of the screen for animation. Tools apply immediately;
+`? help`, the active tool, and brief feedback, leaving the rest of the screen for animation. Tools apply immediately;
 keyboard targeting also works when mouse reporting is unavailable.
 
 Released under Zero-Clause BSD (SPDX: `0BSD`). Attribution and copyleft are not

@@ -14,6 +14,12 @@ from .viewport import Camera, Grid
 TOOLS = ("Inspect", "Lyse", "Feed", "Stir")
 
 
+def entry_phase(entry):
+    if not entry.exiting:
+        return "arriving from edge"
+    return "withdrawing to retry arrival" if entry.retry else "leaving slide"
+
+
 def describe(world, target):
     if target is None or not target.alive(world):
         return "No selection / click a body or use Tab to choose one"
@@ -30,7 +36,7 @@ def describe(world, target):
             }[obj.state]
         )
         if obj.entry is not None:
-            phase = "arriving from edge"
+            phase = entry_phase(obj.entry)
         if world.events.freezes(obj):
             phase = "releasing DNA trap"
         return f"{obj.kind.capitalize()} #{obj.id} / {phase} / vesicles {len(obj.vesicles)} / mitochondrial networks {sum(n.kind == 'mitochondrion' for n in obj.organelles)}"
@@ -50,7 +56,7 @@ def describe(world, target):
         )
         label = MICROBES[obj.kind].label
         if obj.entry is not None:
-            phase = "arriving from edge"
+            phase = entry_phase(obj.entry)
         if obj.complement is not None:
             phase += (
                 " / complement pores"
@@ -62,7 +68,11 @@ def describe(world, target):
         return "Red blood cell / drifting / no nucleus"
     if target.kind == "phage":
         return f"Bacteriophage #{obj.id} / " + (
-            "dispersing" if obj.flight else "waiting for a host"
+            entry_phase(obj.entry)
+            if obj.entry is not None
+            else "dispersing"
+            if obj.flight
+            else "waiting for a host"
         )
     if target.kind == "hypha":
         return f"Fungal branch / {len(obj.nodes)} compartments / growing tips {len(obj.tips)}"
@@ -82,6 +92,7 @@ class Interaction:
     message: str = ""
     message_until: float = 0.0
     camera: Camera | None = None
+    selection_lost: bool = False
 
     def grid(self, world):
         return self.camera.grid(world) if self.camera is not None else Grid()
@@ -101,20 +112,24 @@ class Interaction:
         self.row = int(clamp(self.row, 0, max(0, rows - 2)))
 
     def aim(self, world, col, row):
+        self.selection_lost = False
         self.col, self.row = int(col), int(row)
         self.resize(*self.dimensions(world))
         self.tracking = False
         self.selected = self.hit(world)
 
     def cycle(self, world):
-        available = [
-            t
-            for t in targets(world)
-            if 0 <= self.grid(world).column(t.center[0]) < self.dimensions(world)[0]
-            and 0 <= self.grid(world).row(t.center[1]) < self.dimensions(world)[1] - 1
-        ]
+        self.selection_lost = False
+        grid = self.grid(world)
+        columns, rows = self.dimensions(world)
+        available = []
+        for target in targets(world, grid=grid):
+            col, row = grid.point(*target.center)
+            if 0 <= col < columns and 0 <= row < rows - 1:
+                available.append(target)
         if not available:
             self.selected = None
+            self.tracking = False
             return
         previous = next(
             (
@@ -132,15 +147,29 @@ class Interaction:
 
     def follow(self, world):
         if self.selected is not None and not self.selected.alive(world):
+            self.selection_lost = self.tracking
             self.selected = None
             self.tracking = False
         if self.tracking and self.selected is not None:
             x, y = self.selected.center
-            self.col, self.row = self.grid(world).point(x, y)
+            col, row = self.grid(world).point(x, y)
+            columns, rows = self.dimensions(world)
+            if not (0 <= col < columns and 0 <= row < rows - 1):
+                self.selected = None
+                self.tracking = False
+                self.selection_lost = True
+                self.message = "Selection left the view / select a visible body"
+                self.message_until = math.inf
+            else:
+                self.col, self.row = col, row
         self.resize(*self.dimensions(world))
 
     def apply(self, world, now):
         self.follow(world)
+        if self.tool == 1 and self.selection_lost:
+            self.message = "Selection lost / click a body or use Tab to choose one"
+            self.message_until = now + 4
+            return
         wx, wy = self.grid(world).world(self.col, self.row)
         if self.tool == 0:
             if not self.tracking:
@@ -210,7 +239,12 @@ class Interaction:
             frame.put(self.col + dx, self.row + dy, char, Ink.TEXT)
         bottom = frame.height - 1
         frame.text(0, bottom, " " * frame.width, Ink.TEXT)
-        frame.text(0, bottom, "? help" + (" / PAUSED" if paused else ""), Ink.MUTED)
+        text = "? help" + (" / PAUSED" if paused else "") + f" / [{TOOLS[self.tool]}]"
+        if now < self.message_until and self.message:
+            text += " / " + self.message
+        elif self.selected is not None:
+            text += " / " + describe(world, self.selected)
+        frame.text(0, bottom, text[: frame.width], Ink.MUTED)
 
 
 def enable_mouse(curses):

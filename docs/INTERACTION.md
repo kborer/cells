@@ -7,8 +7,9 @@ cells --interactive
 cells --interactive --seed 42 --observe
 ```
 
-Inspect is selected initially. A single bottom line shows `? help`; the rest of
-the screen remains available to the animation. Ordinary
+Inspect is selected initially. A single bottom line shows `? help`, the selected
+tool, and a brief identity or action message, truncated to the terminal width.
+The rest of the screen remains available to the animation. Ordinary
 ambient mode keeps its original controls and does not capture the mouse.
 
 | Key | Tool | Apply with a left click or Enter |
@@ -23,7 +24,9 @@ With `--magnification detail`, uppercase H/J/K/L pan the camera; lowercase
 movement still aims the reticle. Clicking, selection, feeding, and currents map
 back to specimen coordinates. The toolbar remains protected at every scale. `Tab` cycles visible
 entities and follows the selection as it moves. `Enter` applies the active tool.
-Selection brackets mark the chosen entity without recoloring it. The aiming
+Panning or movement clears a tracked selection when its anchor leaves the view,
+so Enter cannot lyse an invisible selection. Selection brackets mark the chosen
+entity without recoloring it. The aiming
 reticle leaves the glyph under it visible. Clicking the toolbar never acts on
 objects underneath it. Help pauses the scene and ignores tool clicks.
 Tool instructions appear in `?` help only when `--interactive` is enabled.

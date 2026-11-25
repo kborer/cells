@@ -9,11 +9,16 @@ or document a finding based on its actual exploitability; do not hide failures
 through blanket exclusions. Dependabot never merges or publishes automatically.
 
 Nightly Endurance jobs run extended Hypothesis sequences and one simulated hour
-per scene. Download their JSON reports to compare population history, allocation
+per scene, plus fifteen-minute compact, overview, and raster/detail profiles.
+Compact profiles use seeds 0 and 42 without resizing, so resizing cannot hide
+blocked arrivals. Reports check entry completion, eligible budding progress,
+free microbial populations, and immune diversity as well as finite counts.
+Download their JSON reports to compare population history, allocation
 retention, and early/late update latency. Limits are deliberately generous to
 avoid treating shared-runner noise as a product regression. Failures still need
 investigation. Seeded reproduction commands are in the logs. Coverage is reported
-in CI and the Ubuntu Python 3.14 `.coverage` artifact; use `coverage html` locally
+in CI and the Ubuntu Python 3.14 `.coverage` artifact. Paths are relative to the
+repository: download it into your checkout and use `coverage html` locally
 to locate missing branches. Coverage percentage is diagnostic, not a substitute
 for assertions about behavior.
 

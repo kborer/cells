@@ -47,6 +47,9 @@ uses the same inverse mapping for tools. See the [camera contract](PRESENTATION_
 
 Styles expose `default_fill`, optional `legend`, and `palette(theme)` so the terminal and comparison
 gallery use the same negotiated effects and semantic-color definitions. Each
+terminal frame resolves `styles.effective_style(style, options)` before choosing
+both artwork and help metadata; capability failures must not leave the fallback
+artwork paired with a different style's legend. Each
 palette has one (256-color, basic-color) pair per `Ink`, in enum order. Themes
 remain `slide`, `amber`, `light`, and `mono`. Indexed raster pixels carry their
 own 0..255 color values; semantic UI overlays still use the palette. Their

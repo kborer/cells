@@ -9,6 +9,14 @@ from tools.check_dist import check_checkout_payload, terminal_modes
 
 
 class PackagingTests(unittest.TestCase):
+    def test_checked_in_manual_is_fresh(self):
+        from tools.manpage import render
+
+        manual = Path(__file__).resolve().parents[1] / "docs/cells.1"
+        if not manual.is_file():
+            self.skipTest("manual is not present in this checkout")
+        self.assertEqual(manual.read_text(), render())
+
     def test_terminal_modes_ignore_pending_input_but_detect_changed_echo(self):
         try:
             import termios

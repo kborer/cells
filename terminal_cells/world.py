@@ -97,6 +97,9 @@ class World:
         self.large_arrival_at = 100.0
         self.last_seen = dict.fromkeys(MICROBE_KINDS, 0.0)
         self.arrivals = 0
+        self.entry_completions = 0
+        self.entry_retries = 0
+        self.immune_last_seen = dict.fromkeys(("macrophage", "neutrophil"), 0.0)
         # Draw a new community profile per slide; children retain their type.
         self.microbe_weights = [self.rng.gammavariate(0.8, 1) + 0.08 for _ in MICROBE_KINDS]
         if scene == "blood":
@@ -263,6 +266,7 @@ class World:
         padding = self._entry_padding(obj)
         footprint = self._entry_extent(obj)
         exempt = obj.id if isinstance(obj, Cell) else None
+        best = None
         for _ in range(32):
             tx, ty, angle = self._edge_position(footprint + 1)
             tx = clamp(
@@ -280,21 +284,29 @@ class World:
             y = -footprint - 2 if uy > 0 else self.height + footprint + 2 if uy < 0 else ty
             remaining = math.hypot(tx - x, ty - y)
             samples = max(1, math.ceil(remaining / 2))
-            if all(
-                next(
-                    self._obstacles(
-                        x + ux * remaining * i / samples,
-                        y + uy * remaining * i / samples,
-                        padding,
-                        exempt,
-                        red=not isinstance(obj, Drifter),
-                    ),
-                    None,
-                )
-                is None
-                for i in range(samples + 1)
-            ):
+            clear = 0
+            for i in range(samples + 1):
+                if (
+                    next(
+                        self._obstacles(
+                            x + ux * remaining * i / samples,
+                            y + uy * remaining * i / samples,
+                            padding,
+                            exempt,
+                            red=not isinstance(obj, Drifter),
+                        ),
+                        None,
+                    )
+                    is not None
+                ):
+                    break
+                clear += 1
+            score = clear / (samples + 1)
+            if best is None or score > best[0]:
+                best = score, x, y, angle, remaining, tx, ty
+            if clear == samples + 1:
                 break
+        _, x, y, angle, remaining, tx, ty = best
         obj.x, obj.y = x, y
         obj.entry = Entry(angle, remaining, tx, ty)
         if isinstance(obj, Cell):
@@ -310,6 +322,42 @@ class World:
 
     def _advance_entry(self, obj, dt: float) -> None:
         entry = obj.entry
+        entry.age += dt
+        footprint = self._entry_extent(obj)
+        exempt = obj.id if isinstance(obj, Cell) else None
+        red = not isinstance(obj, Drifter)
+
+        def penetration(x, y):
+            return max(
+                (p for _, _, p in self._obstacles(x, y, self._entry_padding(obj), exempt, red=red)),
+                default=0,
+            )
+
+        # The goal is a staging point, not a second membrane. Once the body
+        # is in clear fluid, ordinary steering can take over immediately.
+        # Flexible trailing flagella may still cross the edge; only the body
+        # needs to clear it before taking over its own steering.
+        body = self._entry_padding(obj)
+        mx, my = min(body, self.width / 2), min(body, self.height / 2)
+        inside = mx <= obj.x <= self.width - mx and my <= obj.y <= self.height - my
+        if not entry.exiting and inside and penetration(obj.x, obj.y) == 0:
+            self._finish_entry(obj)
+            return
+        if not entry.exiting and entry.age >= 60:
+            self._begin_departure(obj, retry=True)
+            entry = obj.entry
+        if entry.exiting and (
+            obj.x < -footprint
+            or obj.x > self.width + footprint
+            or obj.y < -footprint
+            or obj.y > self.height + footprint
+        ):
+            if entry.retry:
+                self.entry_retries += 1
+                self._begin_entry(obj)  # Reposition only while entirely offscreen.
+            else:
+                self.cells = [c for c in self.cells if c is not obj]
+            return
         speed = (
             max(1.8, obj.speed)
             if isinstance(obj, Bacterium)
@@ -317,34 +365,66 @@ class World:
             if isinstance(obj, Cell)
             else 2
         )
+        entry.remaining = math.hypot(entry.target_x - obj.x, entry.target_y - obj.y)
         distance = min(entry.remaining, speed * dt)
         steps = max(1, math.ceil(distance / 0.5))
         ux = (entry.target_x - obj.x) / max(entry.remaining, 1e-9)
         uy = (entry.target_y - obj.y) / max(entry.remaining, 1e-9)
-        exempt = obj.id if isinstance(obj, Cell) else None
         for _ in range(steps):
             step = distance / steps
             x, y = obj.x + ux * step, obj.y + uy * step
-            if (
-                next(
-                    self._obstacles(
-                        x, y, self._entry_padding(obj), exempt, red=not isinstance(obj, Drifter)
-                    ),
-                    None,
-                )
-                is not None
-            ):
-                return  # Wait at a blocked entrance instead of being teleported.
+            if penetration(x, y) > 0:
+                entry.blocked += dt / steps
+                if entry.blocked < 0.75:
+                    return
+                # Follow a consistent side of the obstruction rather than
+                # oscillating between equally good lateral steps.
+                side = 1 if getattr(obj, "id", 0) % 2 else -1
+                angle = math.atan2(uy, ux)
+                previous = penetration(obj.x, obj.y)
+                for turn in (1, -1, 2, -2, 3, -3, 4):
+                    heading = angle + turn * side * math.pi / 4
+                    x, y = obj.x + math.cos(heading) * step, obj.y + math.sin(heading) * step
+                    overlap = penetration(x, y)
+                    if overlap == 0 or (previous > 0 and overlap < previous - 1e-8):
+                        break
+                else:
+                    return
+            else:
+                entry.blocked = 0
             obj.x, obj.y = x, y
-            entry.remaining = max(0, entry.remaining - step)
-        if entry.remaining < 1e-7:
-            obj.entry = None
-            if isinstance(obj, Bacterium):
-                obj.turn_at = self.time + self.rng.uniform(1, 3)
-            elif isinstance(obj, Cell):
-                obj.cooldown = 1
-                if obj.kind == "macrophage":
-                    obj.divide_at = self.time + self.rng.uniform(18, 26)
+            entry.remaining = math.hypot(entry.target_x - obj.x, entry.target_y - obj.y)
+        if entry.remaining < 1e-7 and not entry.exiting:
+            self._finish_entry(obj)
+
+    def _finish_entry(self, obj) -> None:
+        obj.entry = None
+        self.entry_completions += 1
+        if isinstance(obj, Bacterium):
+            obj.turn_at = self.time + self.rng.uniform(1, 3)
+        elif isinstance(obj, Cell):
+            obj.cooldown = 1
+            if obj.kind == "macrophage":
+                obj.divide_at = self.time + self.rng.uniform(18, 26)
+
+    def _begin_departure(self, obj, *, retry=False) -> None:
+        distances = (obj.x, self.width - obj.x, obj.y, self.height - obj.y)
+        angle = (math.pi, 0, -math.pi / 2, math.pi / 2)[distances.index(min(distances))]
+        margin = self._entry_extent(obj) + 2
+        tx = -margin if angle == math.pi else self.width + margin if angle == 0 else obj.x
+        ty = (
+            -margin
+            if angle == -math.pi / 2
+            else self.height + margin
+            if angle == math.pi / 2
+            else obj.y
+        )
+        obj.entry = Entry(
+            angle, math.hypot(tx - obj.x, ty - obj.y), tx, ty, exiting=True, retry=retry
+        )
+        if isinstance(obj, Cell):
+            self._release(obj)
+            obj.heading = angle
 
     def _add_nutrient(self, x: float, y: float, amount: float = 4) -> None:
         if len(self.nutrients) >= 4:
@@ -366,6 +446,9 @@ class World:
             self.nutrient_at = self.time + self.rng.uniform(18, 30)
 
     def _update_arrivals(self) -> None:
+        for cell in self.cells:
+            if cell.entry is None or not cell.entry.exiting:
+                self.immune_last_seen[cell.kind] = self.time
         counts = {kind: 0 for kind in MICROBE_KINDS}
         for microbe in self.bacteria.values():
             if not microbe.leaving:
@@ -416,10 +499,25 @@ class World:
         if self.time >= self.large_arrival_at:
             cell_limit, _, red_limit, _ = self._limits()
             reserved = len(self.cells) + sum(c.state is State.DIVIDE for c in self.cells)
-            if reserved < cell_limit:
-                missing_immune = [
-                    k for k in ("macrophage", "neutrophil") if all(c.kind != k for c in self.cells)
+            missing_immune = [
+                k for k in self.immune_last_seen if all(c.kind != k for c in self.cells)
+            ]
+            overdue = any(self.time - self.immune_last_seen[k] >= 120 for k in missing_immune)
+            if (
+                reserved >= cell_limit >= 2
+                and overdue
+                and not any(c.entry is not None and c.entry.exiting for c in self.cells)
+            ):
+                candidates = [
+                    c
+                    for c in self.cells
+                    if c.state in (State.WANDER, State.DIGEST)
+                    and c.entry is None
+                    and sum(other.kind == c.kind for other in self.cells) > 1
                 ]
+                if candidates:
+                    self._begin_departure(min(candidates, key=lambda c: c.id))
+            if reserved < cell_limit:
                 kind = self.rng.choice(missing_immune) if missing_immune else None
                 self._add_cell(0, 1, kind)
                 cell = self.cells[-1]
@@ -431,6 +529,8 @@ class World:
                 self.red_cells.append(red)
                 self.arrivals += 1
             self.large_arrival_at = self.time + self.rng.uniform(80, 140)
+            if overdue:
+                self.large_arrival_at = self.time + 10
 
     def _hypha_limit(self) -> int:
         if self.scene == "blood":
@@ -550,6 +650,13 @@ class World:
             if obj.entry is None:
                 continue
             ux, uy = round(math.cos(obj.entry.angle)), round(math.sin(obj.entry.angle))
+            if obj.entry.exiting:
+                margin = self._entry_extent(obj) + 2
+                tx = -margin if ux < 0 else self.width + margin if ux > 0 else obj.x
+                ty = -margin if uy < 0 else self.height + margin if uy > 0 else obj.y
+                obj.entry.target_x, obj.entry.target_y = tx, ty
+                obj.entry.remaining = math.hypot(tx - obj.x, ty - obj.y)
+                continue
             margin = self._entry_extent(obj) + 1
             tx = min(margin, self.width / 2) if ux > 0 else max(self.width / 2, self.width - margin)
             ty = (
@@ -990,7 +1097,11 @@ class World:
             and not cell.vesicles
         ):
             reserved = len(self.cells) + sum(c.state is State.DIVIDE for c in self.cells)
-            if reserved < self._limits()[0]:
+            waiting = self._limits()[0] >= 2 and any(
+                self.time - last >= 120 and all(c.kind != kind for c in self.cells)
+                for kind, last in self.immune_last_seen.items()
+            )
+            if reserved < self._limits()[0] and not waiting:
                 self._release(cell)
                 cell.state = State.DIVIDE
                 cell.division_angle = self.rng.uniform(-0.6, 0.6)
@@ -1129,7 +1240,7 @@ class World:
             or microbe.leaving
             or microbe.entry is not None
             or len(self.bacteria) >= limit
-            or not crowding.has_room(self, microbe)
+            or not crowding.has_room(self, microbe, reproduction=True)
         ):
             return
         spec = MICROBES[microbe.kind]

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Recover obstructed edge arrivals with local navigation and offscreen retries;
+  allow bodies in clear fluid to resume normal behavior before a blocked staging point.
+- Let duplicate immune cells depart through an edge so missing immune types can
+  return without increasing population caps or removing division animations.
+- Fix budding footprint accounting, projected fungal picking and Tab selection,
+  offscreen destructive selections, and simulation slowdown at low drawing FPS.
+- Show compact tool/Inspect feedback on the single footer line and keep style
+  legends consistent with capability fallbacks.
+- Extend endurance checks to lifecycle progress, diversity, multiple seeds,
+  fixed compact slides, overview, and raster detail. Make coverage paths portable.
+- Validate release preparation before editing version files, regenerate the
+  manual with each version, and check manual freshness in CI and distributions.
+
 ## 0.2.0 — 2026-11-24
 
 - Add `--magnification overview|normal|detail` and H/J/K/L panning for wider

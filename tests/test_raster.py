@@ -40,6 +40,8 @@ class RasterTests(unittest.TestCase):
         self.assertGreater(len({(p.color, p.background) for p in pixels}), 10)
 
     def test_fallbacks_match_classic_drawing_and_plain_snapshots(self):
+        from terminal_cells.styles import effective_style
+
         world = make_scene("blood-smear")
         for caps in (
             RenderCapabilities(),
@@ -54,6 +56,10 @@ class RasterTests(unittest.TestCase):
                     get_style("raster").render(world, options).pixels,
                     render(world, options.unicode, options.fill).pixels,
                 )
+                resolved = effective_style(get_style("raster"), options)
+                self.assertEqual(resolved.name, "classic")
+                labels = help_lines(legend=resolved.legend)
+                self.assertIn("Rod bacterium: gold", labels)
         output = []
         for name in ("classic", "raster"):
             stream = io.StringIO()
@@ -62,6 +68,7 @@ class RasterTests(unittest.TestCase):
             output.append(stream.getvalue())
         self.assertEqual(*output)
         self.assertTrue(output[1].isascii())
+        self.assertIs(effective_style(get_style("raster"), OPTIONS), get_style("raster"))
 
     def test_all_raster_frames_and_semantic_ui_fit_the_curses_pair_budget(self):
         backend = FakeCurses()
@@ -88,6 +95,10 @@ class RasterTests(unittest.TestCase):
         renderer.draw(get_style("raster").render(world, OPTIONS))
         self.assertFalse(renderer.fill)
         self.assertIsNone(renderer.previous)
+        from terminal_cells.styles import effective_style
+
+        options = RenderOptions.resolve(renderer.capabilities(True), fill=True)
+        self.assertEqual(effective_style(get_style("raster"), options).name, "classic")
         next_frame = get_style("raster").render(
             world, RenderOptions.resolve(renderer.capabilities(True), fill=True)
         )

@@ -136,6 +136,7 @@ class SecurityTests(unittest.TestCase):
                     "0.0.1",
                     "0.1.0rc1",
                     "00.2.0",
+                    "0.2.0rc01",
                 ):
                     with self.assertRaises(ValueError):
                         release.prepare(value)
@@ -143,6 +144,29 @@ class SecurityTests(unittest.TestCase):
                 self.assertEqual(release.version(), "0.2.0")
                 self.assertIn("## 0.2.0", (root / "CHANGELOG.md").read_text())
                 self.assertIn("- A fix.", (root / "CHANGELOG.md").read_text())
+                self.assertIn("cells 0.2.0", (root / "docs/cells.1").read_text())
+
+    def test_release_preparation_validates_before_changing_files(self):
+        from tools import release
+
+        for changelog in (
+            "# Changelog\n",
+            "### Unreleased\n",
+            "## Unreleased\n## Unreleased\n",
+            "## Unreleased\n\n## 0.2.1\n",
+        ):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "terminal_cells").mkdir()
+                source = root / "terminal_cells/__init__.py"
+                source.write_text('__version__ = "0.2.0"\n')
+                (root / "CHANGELOG.md").write_text(changelog)
+                with patch.object(release, "ROOT", root):
+                    with self.assertRaisesRegex(ValueError, "changelog"):
+                        release.prepare("0.2.1")
+                self.assertEqual(source.read_text(), '__version__ = "0.2.0"\n')
+                self.assertEqual((root / "CHANGELOG.md").read_text(), changelog)
+                self.assertFalse((root / "docs/cells.1").exists())
 
     def test_malformed_mouse_events_are_ignored(self):
         class Backend:

@@ -159,11 +159,30 @@ class InteractionTests(unittest.TestCase):
         control.draw(frame, world, 1)
         self.assertEqual(control.col, 42)
         self.assertEqual(frame.plain().splitlines()[-3:-1], scene_rows)
-        self.assertEqual(frame.plain().splitlines()[-1].rstrip(), "? help")
+        footer = frame.plain().splitlines()[-1].rstrip()
+        self.assertIn("? help", footer)
+        self.assertIn("[Inspect]", footer)
+        self.assertIn("Macrophage", footer)
         control.key(world, ord("4"), MouseBackend, 2)
         control.key(world, MouseBackend.KEY_RIGHT, MouseBackend, 2)
         control.key(world, 10, MouseBackend, 2)
         self.assertEqual(len(world.lab.stirs), 1)
+
+    def test_tool_and_refusal_feedback_stay_on_one_row_and_expire(self):
+        world = self.world()
+        control = Interaction(0, 0)
+        control.key(world, ord("2"), MouseBackend, 0)
+        frame = render(world)
+        before = frame.plain().splitlines()[:-1]
+        control.draw(frame, world, 1)
+        self.assertIn("Lyse selected", frame.plain().splitlines()[-1])
+        control.apply(world, 2)
+        control.draw(frame, world, 3)
+        self.assertIn("No cell at cursor", frame.plain().splitlines()[-1])
+        control.draw(frame, world, 7)
+        self.assertNotIn("No cell at cursor", frame.plain().splitlines()[-1])
+        # Reticles can affect the scene; feedback itself only occupies the footer.
+        self.assertEqual(frame.plain().splitlines()[2:-1], before[2:])
 
     def test_toolbar_click_is_never_destructive_and_resize_clamps_aim(self):
         world = self.world()

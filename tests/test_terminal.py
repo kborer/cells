@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from terminal_cells import Frame, Ink, STEP, World
@@ -69,6 +70,69 @@ class Screen:
 
 
 class TerminalTests(unittest.TestCase):
+    def test_simulation_clock_is_independent_of_drawing_fps(self):
+        from terminal_cells import cli
+
+        class Clock:
+            now = 0.0
+
+            def sleep(self, amount):
+                self.now += amount
+
+        class InputScreen:
+            encoding = "UTF-8"
+
+            def keypad(self, enabled):
+                pass
+
+            def nodelay(self, enabled):
+                pass
+
+            def getmaxyx(self):
+                return 24, 80
+
+            def getch(self):
+                return -1
+
+        for fps, speed in ((1, 1), (10, 1), (30, 1), (1, 8), (30, 8), (60, 8)):
+            with self.subTest(fps=fps, speed=speed):
+                clock, worlds, draws = Clock(), [], []
+
+                def make_world(*args, **kwargs):
+                    world = World(*args, **kwargs)
+                    worlds.append(world)
+                    return world
+
+                backend = SimpleNamespace(curs_set=lambda n: None, error=Exception)
+                renderer = SimpleNamespace(
+                    previous=None,
+                    capabilities=lambda unicode: cli.RenderCapabilities(),
+                    draw=lambda frame: draws.append(clock.now),
+                )
+                args = parser().parse_args(
+                    [
+                        "--seed",
+                        "42",
+                        "--fps",
+                        str(fps),
+                        "--speed",
+                        str(speed),
+                        "--duration",
+                        "1",
+                        "--no-events",
+                    ]
+                )
+                with (
+                    patch.object(cli, "load_curses", return_value=backend),
+                    patch.object(cli, "TerminalRenderer", return_value=renderer),
+                    patch.object(cli, "World", side_effect=make_world),
+                    patch.object(cli.time, "monotonic", side_effect=lambda: clock.now),
+                    patch.object(cli.time, "sleep", side_effect=clock.sleep),
+                ):
+                    cli._session(InputScreen(), args, False)
+                self.assertAlmostEqual(worlds[0].time, speed, delta=STEP + speed / 60 + 1e-6)
+                self.assertLessEqual(len(draws), fps + 1)
+
     def test_help_hides_inactive_tools_and_separates_interactive_controls(self):
         ambient = help_lines()
         interactive = help_lines(interactive=True)

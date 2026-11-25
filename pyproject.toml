@@ -52,3 +52,8 @@ select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/test_cells.py" = ["E402"]
+
+[tool.coverage.run]
+branch = true
+source = ["terminal_cells"]
+relative_files = true

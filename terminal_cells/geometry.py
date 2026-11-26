@@ -92,6 +92,8 @@ def obstacles(
     Positive padding expands each obstacle. Exempt names an immune-cell ID.
     This preserves the simulation's radial collision envelope.
     """
+    if world.vessel is not None:
+        yield from world.vessel.obstacles(x, y, padding, exempt)
     if visitors:
         yield from world.events.obstacle(x, y, padding)
     for cell in world.cells:
@@ -135,6 +137,18 @@ class Target:
             "hypha": world.hyphae,
             "food": world.nutrients,
         }
+        if self.kind in ("platelet", "fibroblast", "endothelium"):
+            if world.vessel is None:
+                return False
+            pool = getattr(
+                world.vessel,
+                {
+                    "platelet": "platelets",
+                    "fibroblast": "fibroblasts",
+                    "endothelium": "endothelium",
+                }[self.kind],
+            )
+            return any(obj is self.obj for obj in pool)
         if self.kind == "rotifer":
             return world.events.active is self.obj
         return any(obj is self.obj for obj in pools[self.kind]) and (
@@ -156,6 +170,8 @@ class Target:
             return max(microbe_axes(self.obj)) * bacterial_scale(self.obj)
         if self.kind == "red":
             return self.obj.size
+        if self.kind in ("platelet", "fibroblast", "endothelium"):
+            return {"platelet": 3, "fibroblast": 9, "endothelium": 9}[self.kind]
         return {"phage": 1.5, "rotifer": 14, "food": 5, "hypha": 2}[self.kind]
 
 
@@ -164,6 +180,10 @@ def targets(world, *, grid=None):
     result += [Target("microbe", obj) for obj in world.bacteria.values()]
     result += [Target("red", obj) for obj in world.red_cells]
     result += [Target("phage", obj) for obj in world.phages.values()]
+    if world.vessel is not None:
+        result += [Target("endothelium", obj) for obj in world.vessel.endothelium]
+        result += [Target("platelet", obj) for obj in world.vessel.platelets]
+        result += [Target("fibroblast", obj) for obj in world.vessel.fibroblasts]
     for obj in world.hyphae:
         if not obj.edges:
             continue
@@ -207,6 +227,9 @@ def _hit_test(world, col, row, grid):
         cx, cy = target.center
         dx, dy = x - cx, y - cy
         priority = {
+            "endothelium": -1,
+            "fibroblast": 8,
+            "platelet": 8,
             "food": 0,
             "hypha": 1,
             "red": 2,
@@ -229,6 +252,15 @@ def _hit_test(world, col, row, grid):
             inside = ((dx * ux + dy * uy) / (a * scale + 0.6 / grid.scale)) ** 2 + (
                 (-dx * uy + dy * ux) / (b * scale + 0.8 / grid.scale)
             ) ** 2 <= 1
+        elif target.kind == "endothelium":
+            inside = abs(dx) <= 9 and abs(dy) <= 2.5
+        elif target.kind == "fibroblast":
+            inside = (dx / (7 + 0.5 / grid.scale)) ** 2 + (dy / (2.5 + 0.5 / grid.scale)) ** 2 <= 1
+        elif target.kind == "platelet":
+            inside = (
+                distance
+                <= (1 + obj.spread * (0.35 if obj.phase == "adhered" else 1.4)) + 0.5 / grid.scale
+            )
         elif target.kind == "red":
             a, b = disc_axes(obj)
             inside = (dx / (a + 0.5 / grid.scale)) ** 2 + (dy / (b + 0.8 / grid.scale)) ** 2 <= 1

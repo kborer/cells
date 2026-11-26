@@ -52,8 +52,22 @@ class Laboratory:
     pings: list[Pulse] = field(default_factory=list)
 
     def lyse(self, world, target, x, y):
+        if target is None and world.vessel is not None and world.vessel.room:
+            side = -1 if y < world.height / 2 else 1
+            if abs(y - world.vessel.wall(x, side)) <= 4:
+                return (
+                    "Vessel injury started"
+                    if world.vessel.injure(x, side)
+                    else "A vessel repair is already in progress"
+                )
         if target is None or not target.alive(world):
             return "No cell at cursor"
+        if target.kind == "endothelium":
+            return (
+                "Vessel injury started"
+                if world.vessel.injure(target.obj.x, target.obj.side)
+                else "A vessel repair is already in progress"
+            )
         if target.kind in ("rotifer", "food"):
             return "Choose a cell, fungal branch, or phage particle"
         if len(self.ruptures) >= 16:
@@ -129,6 +143,10 @@ class Laboratory:
             self._advect(world, disc, dt, disc.size + 1, red=False)
         for particle in world.debris:
             self._advect(world, particle, dt, DEBRIS_PADDING)
+        if world.vessel is not None:
+            for platelet in world.vessel.platelets:
+                if platelet.phase != "adhered":
+                    self._advect(world, platelet, dt, 1.2)
         for phage in [*world.phages.values(), *world.spent_capsids]:
             self._advect(world, phage, dt, PHAGE_PADDING)
         for effect in self.ruptures:
@@ -160,6 +178,12 @@ class Laboratory:
                 if bacterium.owner == obj.id:
                     bacterium.owner = None
             world.cells = [c for c in world.cells if c is not obj]
+            if (
+                world.vessel is not None
+                and world.vessel.transit is not None
+                and world.vessel.transit.cell_id == obj.id
+            ):
+                world.vessel.transit = None
             event = world.events.active
             if event and event.kind == "net" and event.source == obj.id:
                 world.events.finish()
@@ -173,6 +197,12 @@ class Laboratory:
                 ("reticulum", "~"),
                 ("vesicle", "o"),
             ]
+        elif target.kind == "platelet":
+            world.vessel.platelets = [p for p in world.vessel.platelets if p is not obj]
+            roles = [("platelet", ".")]
+        elif target.kind == "fibroblast":
+            world.vessel.fibroblasts = [f for f in world.vessel.fibroblasts if f is not obj]
+            roles = [("fibroblast", "-"), ("nucleus", "~")]
         elif target.kind == "red":
             world.red_cells = [r for r in world.red_cells if r is not obj]
             world._add_nutrient(

@@ -120,6 +120,11 @@ class EventDirector:
                 and c.entry is None
                 and c.state in (State.WANDER, State.APPROACH)
                 and not c.vesicles
+                and (
+                    world.vessel is None
+                    or world.vessel.transit is None
+                    or world.vessel.transit.cell_id != c.id
+                )
                 and sum(
                     b.owner is None
                     and b.entry is None
@@ -139,7 +144,7 @@ class EventDirector:
                 return False
             if (
                 kind == "rotifer"
-                and world.scene == "blood"
+                and world.scene in ("blood", "vessel")
                 or kind == "pipette"
                 and not self.microscope
             ):

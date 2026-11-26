@@ -15,6 +15,7 @@ where practical, and update their contributor examples and contract tests.
 | Collision queries | `World.obstacles()` and `World.is_blocked()` | Read-only queries in specimen coordinates; padding expands obstacles |
 | Selection | `geometry.targets()`, `hit_test(world, col, row)`, `Target` | Shared foreground order and terminal-cell picking |
 | Microbial defaults | `catalog.MICROBES`, frozen `MicrobeSpec` | Keyed biological defaults; styles own their art and ink mappings |
+| Vessel/tissue scene | `World.vessel`, `vessel.Vessel`, `vessel_render` | Optional seeded lining, junction crossing, bounded plug and matrix repair |
 | Comparison fixtures | `scenes.SCENES`, `make_scene()` | Independent, staged developer worlds with real fixed-step updates |
 | Contributor checks | `style_checks.check_style()` and `check_world_retention()` | Opt-in checks; never part of the animation loop |
 
@@ -50,7 +51,10 @@ gallery use the same negotiated effects and semantic-color definitions. Each
 terminal frame resolves `styles.effective_style(style, options)` before choosing
 both artwork and help metadata; capability failures must not leave the fallback
 artwork paired with a different style's legend. Each
-palette has one (256-color, basic-color) pair per `Ink`, in enum order. Themes
+palette has one (256-color, basic-color) pair per `Ink`, in enum order.
+`frame.TINT_INKS` identifies foregrounds that can use body tints; tissue
+structures and muted interface text always use the plain slide background.
+This keeps semantic and tint pairs within a 256-pair terminal. Themes
 remain `slide`, `amber`, `light`, and `mono`. Indexed raster pixels carry their
 own 0..255 color values; semantic UI overlays still use the palette. Their
 foreground/background combinations must fit the backend pair budget; the raster

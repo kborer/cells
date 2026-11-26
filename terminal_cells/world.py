@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import random
 from .events import EventDirector
+from .vessel import Vessel
 from .geometry import obstacles
 from .catalog import MICROBES, PHAGE_HOST_KINDS
 from .lab import Laboratory
@@ -64,7 +65,7 @@ class World:
         microscope_events: bool = True,
         complement: bool = True,
     ):
-        if scene not in ("mixed", "blood", "microbial"):
+        if scene not in ("mixed", "blood", "microbial", "vessel"):
             raise ValueError("unknown scene")
         self.events = EventDirector(seed, rare_events, microscope_events)
         self.lab = Laboratory()
@@ -75,6 +76,7 @@ class World:
         self.density = density
         self.width = float(max(1, columns))
         self.height = float(max(1, rows)) * ASPECT
+        self.vessel = Vessel(seed, self.width, self.height) if scene == "vessel" else None
         self.time = 0.0
         self.next_id = 0
         self.engulfed = 0
@@ -102,7 +104,7 @@ class World:
         self.immune_last_seen = dict.fromkeys(("macrophage", "neutrophil"), 0.0)
         # Draw a new community profile per slide; children retain their type.
         self.microbe_weights = [self.rng.gammavariate(0.8, 1) + 0.08 for _ in MICROBE_KINDS]
-        if scene == "blood":
+        if scene in ("blood", "vessel"):
             self.microbe_weights = [
                 weight * MICROBES[kind].blood_weight
                 for kind, weight in zip(MICROBE_KINDS, self.microbe_weights)
@@ -115,7 +117,9 @@ class World:
         self.phage_replenish_at = 45.0
 
     def _limits(self) -> tuple[int, int, int, int]:
-        area = self.width * self.height
+        area = self.width * (
+            self.height - self.vessel.band * 2 if self.vessel and self.vessel.room else self.height
+        )
         mean_footprint = sum(
             crowding.area(kind) * weight
             for kind, weight in zip(MICROBE_KINDS, self.microbe_weights)
@@ -134,7 +138,7 @@ class World:
         cell_limit, bacteria_count, red_count, debris_count = self._limits()
         cell_count = min(cell_limit, 2, max(1, math.ceil(cell_limit / 3)))
         for index in range(cell_count):
-            self._add_cell(index, cell_count)
+            self._add_cell(index, cell_count, "neutrophil" if self.vessel and index == 0 else None)
         for _ in range(max(4, round(bacteria_count * self.rng.uniform(0.65, 1)))):
             self._add_bacterium(admit=True)
         # Put one microbe in the path of each macrophage: the first encounter
@@ -161,6 +165,8 @@ class World:
             self.width * 0.18,
             self.height * 0.25,
         )
+        if self.vessel is not None and self.vessel.room:
+            radius = min(radius, (self.height - self.vessel.band * 2 - 2) / 2.8)
         margin = radius + 1
         x = self.width * (index + 0.6) / (count + 0.2)
         y = self.height * self.rng.uniform(0.3, 0.7)
@@ -243,9 +249,12 @@ class World:
         return True
 
     def _edge_position(self, margin: float = 1) -> tuple[float, float, float]:
-        side = self.rng.randrange(4)
+        side = self.rng.randrange(2 if self.vessel and self.vessel.room else 4)
         x, y = self.rng.uniform(0, self.width), self.rng.uniform(0, self.height)
         margin = min(margin, self.width / 3, self.height / 3)
+        if self.vessel is not None and self.vessel.room:
+            low, high = self.vessel.bounds(x, margin)
+            y = self.rng.uniform(min(low, self.height / 2), max(high, self.height / 2))
         if side == 0:
             return margin, y, 0.0
         if side == 1:
@@ -533,7 +542,7 @@ class World:
                 self.large_arrival_at = self.time + 10
 
     def _hypha_limit(self) -> int:
-        if self.scene == "blood":
+        if self.scene in ("blood", "vessel"):
             return 0
         return max(1, min(3, round(self.width * self.height * self.density / 10000)))
 
@@ -588,9 +597,17 @@ class World:
 
     def resize(self, columns: int, rows: int) -> None:
         width, height = float(max(1, columns)), float(max(1, rows)) * ASPECT
+        if self.vessel is not None and self.vessel.transit is not None:
+            transit = self.vessel.transit
+            for cell in self.cells:
+                if cell.id == transit.cell_id:
+                    cell.radius = transit.radius
+            self.vessel.transit = None
         sx, sy = width / self.width, height / self.height
         self.width, self.height = width, height
         self.events.resize(sx, sy)
+        if self.vessel is not None:
+            self.vessel.resize(width, height)
         for obj in [
             *self.cells,
             *self.bacteria.values(),
@@ -615,6 +632,10 @@ class World:
             maturity = cell.radius / (cell.adult_radius or cell.radius)
             base_radius = NEUTROPHIL_RADIUS if cell.kind == "neutrophil" else CELL_RADIUS
             cell.adult_radius = min(base_radius, width * 0.18, height * 0.25)
+            if self.vessel is not None and self.vessel.room:
+                cell.adult_radius = min(
+                    cell.adult_radius, (height - self.vessel.band * 2 - 2) / 2.8
+                )
             cell.radius = cell.adult_radius * maturity
             cell.reach = 0
         # Keep references valid, including when a captured microbe is removed.
@@ -751,6 +772,10 @@ class World:
 
     def _resolve_obstacles(self) -> None:
         for cell in self.cells:
+            if self.vessel is not None and (
+                self.vessel.transit is None or self.vessel.transit.cell_id != cell.id
+            ):
+                self.vessel.contain(cell, cell.radius * 1.3 + 1)
             hit = next(self.events.obstacle(cell.x, cell.y, cell.extent()), None)
             if hit is not None:
                 nx, ny, depth = hit
@@ -1072,6 +1097,8 @@ class World:
         return children
 
     def _update_cell(self, cell: Cell, dt: float) -> None:
+        if self.vessel is not None and self.vessel.update_cell(self, cell, dt):
+            return
         if self.events.freezes(cell):
             return
         if cell.entry is not None:
@@ -1387,6 +1414,8 @@ class World:
 
     def update(self, dt: float = STEP, *, events: bool = True) -> None:
         self.time += dt
+        if self.vessel is not None:
+            self.vessel.update(self, dt)
         self.lab.update(self, dt)
         self.complement.update(self, dt)
         _, bacteria_count, _, _ = self._limits()

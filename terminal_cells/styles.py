@@ -113,6 +113,7 @@ class RasterStyle:
         ("Microbes and fungal filaments: green; shapes identify kinds", Ink.TEXT),
         ("Phages: small purple heads and gray tails", Ink.TEXT),
         ("Complement: gray surface marks and pores", Ink.TEXT),
+        ("Vessel: gray wall, purple platelets, green tissue spindles", Ink.TEXT),
         ("Rare visitors and tools share the simulation", Ink.MUTED),
     )
     name: str = "raster"

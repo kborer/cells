@@ -54,7 +54,18 @@ PATTERNS = (
 )
 # Keep explanatory lifecycle marks, while normal anatomy is drawn as pigment.
 MARKS = frozenset((Ink.DNA, Ink.SPINDLE, Ink.CAPTURE, Ink.VIRAL_DNA, Ink.LYSIS, Ink.COMPLEMENT))
-EFFECTS = frozenset((Ink.NET, Ink.ROTIFER, Ink.GLASS))
+EFFECTS = frozenset(
+    (
+        Ink.NET,
+        Ink.ROTIFER,
+        Ink.GLASS,
+        Ink.ENDOTHELIUM,
+        Ink.PLATELET,
+        Ink.FIBRIN,
+        Ink.FIBROBLAST,
+        Ink.MATRIX,
+    )
+)
 ROLE_COLOR = {
     Ink.DNA: 8,
     Ink.SPINDLE: 7,
@@ -68,6 +79,11 @@ ROLE_COLOR = {
     Ink.MITOCHONDRION: 6,
     Ink.RETICULUM: 5,
     Ink.VESICLE: 11,
+    Ink.ENDOTHELIUM: 13,
+    Ink.PLATELET: 6,
+    Ink.FIBRIN: 5,
+    Ink.FIBROBLAST: 10,
+    Ink.MATRIX: 11,
 }
 
 

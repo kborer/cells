@@ -54,6 +54,11 @@ class Ink(Enum):
     FILL_RED = 40
     FILL_RED_PALE = 41
     COMPLEMENT = 42
+    ENDOTHELIUM = 43
+    PLATELET = 44
+    FIBRIN = 45
+    FIBROBLAST = 46
+    MATRIX = 47
 
 
 # Entity hues retain their meaning across colored themes. Internal anatomy and
@@ -101,6 +106,11 @@ _DARK = [
     (52, 0),
     (234, 0),
     (159, 6),
+    (109, 6),
+    (177, 5),
+    (223, 3),
+    (149, 2),
+    (137, 3),
 ]
 _LIGHT = [
     (250, 7),
@@ -145,6 +155,11 @@ _LIGHT = [
     (224, 7),
     (255, 7),
     (31, 6),
+    (60, 6),
+    (97, 5),
+    (94, 3),
+    (64, 2),
+    (101, 3),
 ]
 _AMBER = list(_DARK)
 _AMBER[Ink.CYTOPLASM.value - 1] = (58, 3)
@@ -159,6 +174,18 @@ FILL_INKS = (
     Ink.FILL_RED,
     Ink.FILL_RED_PALE,
 )
+
+
+# Tissue structures and UI text always use the plain slide background. Reserving
+# tint combinations only for body/anatomy inks keeps all pairs below 256.
+TINT_INKS = frozenset(Ink) - {
+    Ink.MUTED,
+    Ink.ENDOTHELIUM,
+    Ink.PLATELET,
+    Ink.FIBRIN,
+    Ink.FIBROBLAST,
+    Ink.MATRIX,
+}
 
 
 @dataclass(frozen=True)
@@ -205,7 +232,9 @@ class Frame:
             if bg is KEEP:
                 # Glyphs drawn over a filled body stay inside it.
                 bg = self.pixels[y][x].bg
-            self.pixels[y][x] = Pixel(char, ink, bold, bg if self.fill else None)
+            self.pixels[y][x] = Pixel(
+                char, ink, bold, bg if self.fill and ink in TINT_INKS else None
+            )
 
     def indexed(
         self,

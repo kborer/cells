@@ -21,7 +21,8 @@ else:
 
     class SlideMachine(RuleBasedStateMachine):
         @initialize(
-            seed=st.integers(0, 2**32 - 1), scene=st.sampled_from(["mixed", "blood", "microbial"])
+            seed=st.integers(0, 2**32 - 1),
+            scene=st.sampled_from(["mixed", "blood", "microbial", "vessel"]),
         )
         def create(self, seed, scene):
             self.world = World(80, 24, seed, scene=scene)
@@ -59,6 +60,7 @@ else:
             assert world.rng.getstate() == self.twin.rng.getstate()
             assert world.bacteria == self.twin.bacteria
             assert world.cells == self.twin.cells
+            assert world.vessel == self.twin.vessel
             for name in ("phages", "red_cells", "debris", "hyphae", "nutrients", "spent_capsids"):
                 assert getattr(world, name) == getattr(self.twin, name)
             from tools.endurance import check_world

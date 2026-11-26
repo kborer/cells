@@ -20,6 +20,7 @@ from .models import (
     State,
 )
 from .world import World
+from .vessel import Fiber
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,15 @@ SCENES = MappingProxyType(
             "Phage attachment, replication, assembly, and lysis", (0, 5, 10, 18, 22.5, 24.3)
         ),
         "overlap": SceneSpec("Captured cargo beneath its owner's nucleus", (0,)),
+        "vessel-rolling": SceneSpec(
+            "Neutrophil rolling, adhesion, and junction crossing", (0, 8, 14, 24, 34, 41)
+        ),
+        "platelet-plug": SceneSpec(
+            "Resting platelets activate, spread, and form a fibrin plug", (0, 5, 14, 25)
+        ),
+        "wound-repair": SceneSpec(
+            "Tissue fibroblasts deposit matrix as a local wound closes", (0, 20, 40, 60)
+        ),
         "crowding": SceneSpec("A dense seeded community", (0, 12)),
     }
 )
@@ -68,7 +78,11 @@ def make_scene(name: str, *, seed: int = 42, at: float = 0) -> World:
         40,
         seed,
         density=3 if name in ("crowding", "blood-smear") else 1,
-        scene="blood" if name == "blood-smear" else "mixed",
+        scene="vessel"
+        if name in ("vessel-rolling", "platelet-plug", "wound-repair")
+        else "blood"
+        if name == "blood-smear"
+        else "mixed",
         rare_events=False,
         microscope_events=False,
         complement=False,
@@ -117,7 +131,27 @@ def make_scene(name: str, *, seed: int = 42, at: float = 0) -> World:
             pool.clear()
         world.replenish_at = world.phage_replenish_at = math.inf
         world.nutrient_at = world.fungal_arrival_at = world.large_arrival_at = math.inf
-        if name == "complement":
+        if world.vessel is not None:
+            world.vessel.next_at = math.inf
+            world.vessel.injure(50, 1)
+            if name == "vessel-rolling":
+                world.cells = [Cell(0, 40, 40, 11, 0, 0, kind="neutrophil")]
+                world.next_cell_id = 1
+                world.vessel.platelets.clear()
+            elif name == "platelet-plug":
+                for index, obj in enumerate(world.vessel.platelets):
+                    obj.x = 44 + index % 4 * 4
+                    obj.y = world.vessel.wall(obj.x, 1) - 8 - index // 4 * 5
+            elif name == "wound-repair":
+                wound = world.vessel.wound
+                wound.age, wound.repair = 40, 0.2
+                y = world.vessel.wall(50, 1) + 2.5
+                world.vessel.fibers = [
+                    Fiber((43, y + i * 0.2), (57, y - i * 0.2)) for i in range(3)
+                ]
+                for obj in world.vessel.fibroblasts:
+                    obj.x = 45
+        elif name == "complement":
             world.current = still_current
             world.complement.enabled = True
             world.complement.next_at = math.inf

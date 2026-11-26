@@ -1,8 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="1140" viewBox="0 0 1020 1140">
+<svg xmlns="http://www.w3.org/2000/svg" width="1020" height="1265" viewBox="0 0 1020 1265">
 <title>cells palette audit: all semantic inks</title>
 <rect width="1020" height="100%" fill="#10171d"/>
 <g font-family="DejaVu Sans Mono,monospace" font-size="14">
-<rect x="0" width="340" height="1140" fill="#10171d"/>
+<rect x="0" width="340" height="1265" fill="#10171d"/>
 <text x="16" y="30" fill="#eeeeee">slide: extended / basic index</text>
 <rect x="16" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="46" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -88,7 +88,17 @@
 <text x="46" y="1065" fill="#eeeeee">FILL_RED_PALE 234/0</text>
 <rect x="16" y="1077" width="20" height="16" fill="#afffff"/>
 <text x="46" y="1090" fill="#afffff">COMPLEMENT 159/6</text>
-<rect x="340" width="340" height="1140" fill="#10171d"/>
+<rect x="16" y="1102" width="20" height="16" fill="#87afaf"/>
+<text x="46" y="1115" fill="#87afaf">ENDOTHELIUM 109/6</text>
+<rect x="16" y="1127" width="20" height="16" fill="#d787ff"/>
+<text x="46" y="1140" fill="#d787ff">PLATELET 177/5</text>
+<rect x="16" y="1152" width="20" height="16" fill="#ffd7af"/>
+<text x="46" y="1165" fill="#ffd7af">FIBRIN 223/3</text>
+<rect x="16" y="1177" width="20" height="16" fill="#afd75f"/>
+<text x="46" y="1190" fill="#afd75f">FIBROBLAST 149/2</text>
+<rect x="16" y="1202" width="20" height="16" fill="#af875f"/>
+<text x="46" y="1215" fill="#af875f">MATRIX 137/3</text>
+<rect x="340" width="340" height="1265" fill="#10171d"/>
 <text x="356" y="30" fill="#eeeeee">amber: extended / basic index</text>
 <rect x="356" y="52" width="20" height="16" fill="#4e4e4e"/>
 <text x="386" y="65" fill="#4e4e4e">DEBRIS 239/0</text>
@@ -174,7 +184,17 @@
 <text x="386" y="1065" fill="#eeeeee">FILL_RED_PALE 234/0</text>
 <rect x="356" y="1077" width="20" height="16" fill="#afffff"/>
 <text x="386" y="1090" fill="#afffff">COMPLEMENT 159/6</text>
-<rect x="680" width="340" height="1140" fill="#ffffff"/>
+<rect x="356" y="1102" width="20" height="16" fill="#87afaf"/>
+<text x="386" y="1115" fill="#87afaf">ENDOTHELIUM 109/6</text>
+<rect x="356" y="1127" width="20" height="16" fill="#d787ff"/>
+<text x="386" y="1140" fill="#d787ff">PLATELET 177/5</text>
+<rect x="356" y="1152" width="20" height="16" fill="#ffd7af"/>
+<text x="386" y="1165" fill="#ffd7af">FIBRIN 223/3</text>
+<rect x="356" y="1177" width="20" height="16" fill="#afd75f"/>
+<text x="386" y="1190" fill="#afd75f">FIBROBLAST 149/2</text>
+<rect x="356" y="1202" width="20" height="16" fill="#af875f"/>
+<text x="386" y="1215" fill="#af875f">MATRIX 137/3</text>
+<rect x="680" width="340" height="1265" fill="#ffffff"/>
 <text x="696" y="30" fill="#101010">light: extended / basic index</text>
 <rect x="696" y="52" width="20" height="16" fill="#bcbcbc"/>
 <text x="726" y="65" fill="#bcbcbc">DEBRIS 250/7</text>
@@ -260,4 +280,14 @@
 <text x="726" y="1065" fill="#101010">FILL_RED_PALE 255/7</text>
 <rect x="696" y="1077" width="20" height="16" fill="#0087af"/>
 <text x="726" y="1090" fill="#0087af">COMPLEMENT 31/6</text>
+<rect x="696" y="1102" width="20" height="16" fill="#5f5f87"/>
+<text x="726" y="1115" fill="#5f5f87">ENDOTHELIUM 60/6</text>
+<rect x="696" y="1127" width="20" height="16" fill="#875faf"/>
+<text x="726" y="1140" fill="#875faf">PLATELET 97/5</text>
+<rect x="696" y="1152" width="20" height="16" fill="#875f00"/>
+<text x="726" y="1165" fill="#875f00">FIBRIN 94/3</text>
+<rect x="696" y="1177" width="20" height="16" fill="#5f8700"/>
+<text x="726" y="1190" fill="#5f8700">FIBROBLAST 64/2</text>
+<rect x="696" y="1202" width="20" height="16" fill="#87875f"/>
+<text x="726" y="1215" fill="#87875f">MATRIX 101/3</text>
 </g></svg>

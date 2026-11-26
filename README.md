@@ -50,6 +50,7 @@ slide, and **?** for help and the species legend.
 ```sh
 cells --scene microbial --observe  # Microbes, with lifecycle captions
 cells --scene blood               # A blood-inspired community
+cells --scene vessel --observe    # Vessel walls, platelet plugs, and tissue repair
 cells --magnification detail      # Bacterial close-up; H/J/K/L pan
 cells --calm --theme light        # Slower movement on a light background
 cells --style stained --theme light  # Filled cells with classic glyph artwork
@@ -57,6 +58,9 @@ cells --style raster              # Experimental shaded whole-specimen rendering
 cells --ascii                    # Plain ASCII glyphs
 cells --screensaver              # Exit on any key
 ```
+
+The optional [vessel scene](docs/VESSEL.md) adds endothelial walls, rolling
+neutrophils, platelet plugs, and fibroblast repair.
 
 Macrophages, neutrophils, red blood cells, nine microbial forms, fungi, and phages
 share the slide. Watch engulfment, mitosis, budding, viral replication, and rare

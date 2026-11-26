@@ -444,6 +444,8 @@ def draw_nucleus(frame: Frame, cell: Cell, unicode: bool) -> None:
 def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
     frame = Frame.from_world(world, fill)
     compact_view = frame.grid.scale <= 1 and (frame.width < 110 or frame.height < 36)
+    from .vessel_render import draw_wall, draw_repair
+
     draw_nutrients(frame, world, unicode)
     draw_hyphae(frame, world, unicode)
     # Stable size-based depth cues add contrast without adding particles or
@@ -489,6 +491,7 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
             draw_bacterium(
                 frame, bacterium, unicode, world.time, world, tail=0.55 if compact_view else 1.0
             )
+    draw_wall(frame, world, unicode)
     for cell in sorted(world.cells, key=lambda c: c.radius):
         event = world.events.active
         if event is not None and event.kind == "net" and event.source == cell.id and event.age >= 2:
@@ -537,6 +540,7 @@ def render(world: World, unicode: bool = False, fill: bool = False) -> Frame:
     from .lab_render import draw_lab
 
     draw_lab(frame, world, unicode)
+    draw_repair(frame, world, unicode)
     return frame
 
 
@@ -937,6 +941,11 @@ LEGEND = [
     ("Spindle fibers: blue", Ink.SPINDLE),
     ("Capture flash / lysis: white", Ink.CAPTURE),
     ("Complement: pale cyan coating / pores", Ink.COMPLEMENT),
+    ("Endothelium: slate tiled vessel wall", Ink.ENDOTHELIUM),
+    ("Platelets: lavender discs / spiky activated fragments", Ink.PLATELET),
+    ("Fibrin: pale gold local plug strands", Ink.FIBRIN),
+    ("Fibroblasts: yellow-green tissue spindles", Ink.FIBROBLAST),
+    ("Matrix: muted brown parallel repair fibers", Ink.MATRIX),
 ]
 HELP_INKS = dict(LEGEND)
 GENERAL_HELP = [

@@ -17,7 +17,7 @@ import time
 from .models import STEP, State, division_stage, viral_stage
 from .world import World
 from .interaction import Interaction, enable_mouse, restore_mouse, read_click
-from .frame import FILL_INKS, Frame, Ink, PALETTES
+from .frame import FILL_INKS, TINT_INKS, Frame, Ink, PALETTES
 from .render import HELP_INKS, help_lines, overlay
 from .capabilities import RenderCapabilities
 from .styles import DEFAULT_STYLE, STYLES, RenderOptions, get_style, effective_style
@@ -76,7 +76,7 @@ class TerminalRenderer:
             # Reserve a pair for every (glyph ink, tint) combination up front, so
             # tinting never runs out of pairs halfway through a slide. This stays
             # below 256, which also fits the 8-bit pair field of A_COLOR.
-            needed = len(Ink) + len(Ink) * len(FILL_INKS)
+            needed = len(Ink) + len(TINT_INKS) * len(FILL_INKS)
             pairs = getattr(self.curses, "COLOR_PAIRS", 0)
             self.fill = self.curses.COLORS >= 256 and pairs > needed
 
@@ -114,12 +114,14 @@ class TerminalRenderer:
         self._palette = [extended for extended, _ in self.palette]
 
     def _attribute(self, ink: Ink, bg: Ink | None) -> int:
-        if bg is None or not self.fill:
+        if bg is None or not self.fill or ink not in TINT_INKS:
             return self.attributes[ink]
         key = ink, bg
         if key not in self._pairs:
             number = len(Ink) + 1 + len(self._pairs)
             try:
+                if number >= min(256, self.curses.COLOR_PAIRS):
+                    raise self.curses.error()
                 self.curses.init_pair(
                     number, self._palette[ink.value - 1], self._palette[bg.value - 1]
                 )
@@ -428,6 +430,8 @@ def _session(screen, args: argparse.Namespace, mouse: bool) -> None:
                 escaping = sum(b.escape_until > world.time for b in world.bacteria.values())
                 if world.events.caption:
                     phases.insert(0, world.events.caption)
+                if world.vessel is not None:
+                    phases.insert(0, world.vessel.caption)
                 if feeding or riding or escaping:
                     phases.insert(
                         0, f"feeding {feeding} / on hyphae {riding} / escaping {escaping}"
@@ -496,7 +500,10 @@ def parser() -> argparse.ArgumentParser:
         "--seed", type=int, help="repeat a slide within the same program version (normally random)"
     )
     scene.add_argument(
-        "--scene", choices=("mixed", "blood", "microbial"), default="mixed", help="community preset"
+        "--scene",
+        choices=("mixed", "blood", "microbial", "vessel"),
+        default="mixed",
+        help="community preset",
     )
     scene.add_argument(
         "--density",

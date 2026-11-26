@@ -45,6 +45,12 @@ that crossing and returns the cell to the resized lumen.
 
 ![Staged neutrophil crossing, platelet plug, and matrix repair](vessel.svg)
 
+Free microbes, red cells, debris, phages, released capsids, and rupture debris
+follow the fluid current. Nutrient clouds retain their slower advection. Host-bound
+phages stay attached to their bacteria, and attached platelets stay with their plug.
+Immune cells resist most bulk flow; endothelial cells, matrix, and tissue-side
+fibroblasts remain anchored or crawl under their own control.
+
 ## Contributor entry points
 
 `terminal_cells/vessel.py` owns the geometry, seeded event timing, platelets,

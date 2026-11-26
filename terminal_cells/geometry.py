@@ -20,6 +20,18 @@ from .models import (
 )
 
 
+def endothelial_rows(vessel, x, side, grid):
+    """Shared raster anchors: two borders with room for an interior nucleus.
+
+    Round the luminal border once, then preserve thickness through curves and
+    camera movement. Independent rounding can collapse a cell to a single row.
+    """
+    sample_x, _ = grid.world(round(grid.column(x)), 0)
+    inner = round(grid.row(vessel.wall(sample_x, side)))
+    thickness = max(2, round(3 * grid.scale / grid.aspect))
+    return inner, inner + side * thickness, inner + side * (thickness // 2)
+
+
 def cell_contains(cell, x: float, y: float, now: float, padding: float = 0) -> bool:
     dx, dy = x - cell.x, y - cell.y
     return math.hypot(dx, dy) <= cell.outline(math.atan2(dy, dx), now) + padding
@@ -253,7 +265,8 @@ def _hit_test(world, col, row, grid):
                 (-dx * uy + dy * ux) / (b * scale + 0.8 / grid.scale)
             ) ** 2 <= 1
         elif target.kind == "endothelium":
-            inside = abs(dx) <= 9 and abs(dy) <= 2.5
+            inner, outer, _ = endothelial_rows(world.vessel, x, obj.side, grid)
+            inside = abs(dx) <= 9 and min(inner, outer) <= row <= max(inner, outer)
         elif target.kind == "fibroblast":
             inside = (dx / (7 + 0.5 / grid.scale)) ** 2 + (dy / (2.5 + 0.5 / grid.scale)) ** 2 <= 1
         elif target.kind == "platelet":

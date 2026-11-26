@@ -222,7 +222,7 @@ class Phage:
     age: float = 0.0
     lifetime: float = math.inf
     contacts: set[int] = field(default_factory=set)
-    angle: float = math.pi / 2  # Head-to-tail direction; free particles remain still.
+    angle: float = math.pi / 2  # Head-to-tail direction; free particles follow fluid flow.
     entry: Entry | None = None
 
 

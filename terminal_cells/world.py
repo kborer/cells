@@ -914,6 +914,17 @@ class World:
                 lifetime=self.rng.uniform(100, 160),
             )
 
+    def _drift_particle(self, obj, dt, vx=0.0, vy=0.0):
+        """Advect suspended viral particles; short steps preserve membranes."""
+        cx, cy = self.current(obj.x, obj.y)
+        fx, fy = self.events.flow(obj.x, obj.y)
+        vx, vy = vx + cx + fx, vy + cy + fy
+        steps = max(1, math.ceil(math.hypot(vx, vy) * dt / 0.5))
+        for _ in range(steps):
+            obj.x = (obj.x + vx * dt / steps) % self.width
+            obj.y = (obj.y + vy * dt / steps) % self.height
+            self._exclude(obj, PHAGE_PADDING)
+
     def _update_phages(self, dt: float) -> None:
         for phage in list(self.phages.values()):
             phage.age += dt
@@ -923,16 +934,14 @@ class World:
             if phage.entry is not None:
                 self._advance_entry(phage, dt)
                 continue
+            self._drift_particle(
+                phage, dt, phage.vx if phage.flight > 0 else 0, phage.vy if phage.flight > 0 else 0
+            )
             if phage.flight > 0:
-                phage.x = (phage.x + phage.vx * dt) % self.width
-                phage.y = (phage.y + phage.vy * dt) % self.height
                 phage.vx *= math.exp(-dt * 0.8)
                 phage.vy *= math.exp(-dt * 0.8)
                 phage.flight = max(0, phage.flight - dt)
-            # Settled phages ignore the ambient current, but moving membranes
-            # can displace them just as they displace extracellular debris.
-            self._exclude(phage, PHAGE_PADDING)
-            # Orientation is cosmetic: settled particles do not chase hosts.
+            # Orientation is cosmetic: suspended particles do not chase hosts.
             candidates = [
                 b
                 for b in self.bacteria.values()
@@ -992,7 +1001,7 @@ class World:
         self.bursts = [burst for burst in self.bursts if burst.age < 2.0]
         for capsid in self.spent_capsids:
             capsid.age += dt
-            self._exclude(capsid, PHAGE_PADDING)
+            self._drift_particle(capsid, dt)
         self.spent_capsids = [c for c in self.spent_capsids if c.age < c.lifetime]
         if (
             not self.phages

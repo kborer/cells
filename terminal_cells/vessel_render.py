@@ -3,36 +3,72 @@
 import math
 
 from .frame import Ink
+from .geometry import endothelial_rows
 
 
 def draw_wall(frame, world, unicode=False):
     vessel = world.vessel
     if vessel is None or not vessel.room:
         return
-    # Flattened neighbors share a narrow inner boundary and staggered junctions.
+    # Both contours, junctions, nuclei and picking share the same grid anchors.
+    grid = frame.grid
+
+    def opening(x, side):
+        wound, transit = vessel.wound, vessel.transit
+        return (
+            wound is not None
+            and wound.side == side
+            and abs(x - wound.x) < wound.half_width
+            or transit is not None
+            and transit.side == side
+            and transit.age >= 16
+            and abs(x - transit.x) < 2
+        )
+
     for side in (-1, 1):
-        for col in range(frame.width):
-            x, _ = frame.grid.world(col, 0)
-            wall = vessel.wall(x, side)
-            wound = vessel.wound
-            gap = wound is not None and wound.side == side and abs(x - wound.x) < wound.half_width
-            transit = vessel.transit
-            junction = (
-                transit is not None
-                and transit.side == side
-                and transit.age >= 16
-                and abs(x - transit.x) < 2
-            )
-            if not gap and not junction:
-                frame.point(x, wall, "─" if unicode else "_", Ink.ENDOTHELIUM)
-            frame.point(x, wall + side * 3, "─" if unicode else "-", Ink.ENDOTHELIUM)
+        previous = None
+        for col in range(-1, frame.width + 1):
+            x, _ = grid.world(col, 0)
+            inner, outer, _ = endothelial_rows(vessel, x, side, grid)
+            if previous is not None:
+                px, pi, po = previous
+                # Join neighboring samples so row changes cannot leave holes.
+                if not opening(px, side) and not opening(x, side):
+                    frame.line(
+                        *grid.world(col - 1, pi),
+                        *grid.world(col, inner),
+                        Ink.ENDOTHELIUM,
+                        unicode,
+                        bg=None,
+                    )
+                frame.line(
+                    *grid.world(col - 1, po),
+                    *grid.world(col, outer),
+                    Ink.ENDOTHELIUM,
+                    unicode,
+                    bg=None,
+                )
+            previous = x, inner, outer
         for obj in vessel.endothelium:
             if obj.side != side:
                 continue
             x = obj.x - 9
-            wall = vessel.wall(x, side)
-            frame.line(x, wall, x + 2, wall + side * 3, Ink.ENDOTHELIUM, unicode, bg=None)
-            frame.point(obj.x, obj.y, "o", Ink.ENDOTHELIUM)
+            col = round(grid.column(x))
+            end_col = col + max(1, round(2 * grid.scale))
+            start_x, _ = grid.world(col, 0)
+            end_x, _ = grid.world(end_col, 0)
+            inner, _, _ = endothelial_rows(vessel, start_x, side, grid)
+            _, outer, _ = endothelial_rows(vessel, end_x, side, grid)
+            if not opening(start_x, side):
+                frame.line(
+                    *grid.world(col, inner),
+                    *grid.world(end_col, outer),
+                    Ink.ENDOTHELIUM,
+                    unicode,
+                    bg=None,
+                )
+            _, _, nucleus = endothelial_rows(vessel, obj.x, side, grid)
+            frame.put(round(grid.column(obj.x)), nucleus, "o", Ink.ENDOTHELIUM, bg=None)
     wound = vessel.wound
     if wound is not None:
         for sign in (-1, 1):

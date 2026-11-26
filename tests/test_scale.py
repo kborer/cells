@@ -107,8 +107,9 @@ class ScaleTests(unittest.TestCase):
         self.assertAlmostEqual(phage.x, x)
         self.assertAlmostEqual(phage.y, 40)
 
-    def test_orientation_changes_without_attracting_or_moving_free_phages(self):
+    def test_orientation_does_not_propel_free_phages_in_still_fluid(self):
         world = self.empty_world()
+        world.current = lambda x, y: (0, 0)
         host = Bacterium(0, 60, 40, 0, 0, "rod", 999, 999)
         phage = Phage(0, 60, 32, angle=0)
         world.bacteria = {0: host}

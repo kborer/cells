@@ -163,8 +163,9 @@ class Laboratory:
         for effect in self.ruptures:
             effect.age += dt
             for piece in effect.fragments:
-                piece.x += piece.vx * dt
-                piece.y += piece.vy * dt
+                vx, vy = world.current(piece.x, piece.y)
+                piece.x += (piece.vx + vx) * dt
+                piece.y += (piece.vy + vy) * dt
                 piece.vx *= math.exp(-dt * 0.6)
                 piece.vy *= math.exp(-dt * 0.6)
                 world._exclude(piece, 0.6)

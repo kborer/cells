@@ -9,6 +9,7 @@ from terminal_cells.geometry import Target
 from terminal_cells.lab import Fragment, Rupture
 from terminal_cells.models import Bacterium, Drifter, Phage, Nutrient, STEP
 from terminal_cells.scenes import make_scene
+from terminal_cells.vessel import Platelet
 
 
 def flowing(x, y):
@@ -21,7 +22,7 @@ def still(x, y):
 
 class FlowTests(unittest.TestCase):
     def test_suspended_entities_and_rupture_debris_share_ambient_flow(self):
-        world = World(220, 60, 42, rare_events=False)
+        world = World(220, 60, 42, scene="vessel", rare_events=False)
         world.cells.clear()
         world.hyphae.clear()
         world.replenish_at = world.large_arrival_at = world.phage_replenish_at = math.inf
@@ -34,12 +35,14 @@ class FlowTests(unittest.TestCase):
         capsid = Phage(-1, 145, 60, lifetime=18)
         piece = Fragment(175, 60, 0, 0, "microbe", "-")
         food = Nutrient(200, 60)
+        platelet = Platelet(0, 185, 90)
+        world.vessel.platelets = [platelet]
         world.bacteria = {0: microbe}
         world.red_cells, world.debris = [red], [debris]
         world.phages, world.spent_capsids = {0: phage}, [capsid]
         world.nutrients = [food]
         world.lab.ruptures = [Rupture(Target("microbe", microbe), 175, 60, 0, 3, fragments=[piece])]
-        objects = [microbe, red, debris, phage, capsid, piece]
+        objects = [microbe, red, debris, phage, capsid, piece, platelet]
         starts = [obj.x for obj in objects]
         for _ in range(30):
             world.update(STEP)

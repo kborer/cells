@@ -5,7 +5,8 @@
 - Keep endothelial borders, junctions, nuclei, and selection aligned on the
   terminal grid so curved vessel walls retain a consistent cell thickness.
 - Let free phages, released capsids, and rupture fragments follow ambient flow;
-  retain host-bound attachments and anchored tissue structures.
+  retain host-bound attachments and anchored tissue structures, and remove the
+  extra downstream velocity from resting platelets.
 
 - Add an opt-in vessel scene with endothelial walls and staged neutrophil rolling,
   adhesion, and junction crossing (#45).

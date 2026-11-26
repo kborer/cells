@@ -26,6 +26,11 @@ its actual selected palette. Use arrows or j/k to reach all entries.
 | DNA trap | Pale lilac | Branching extracellular web |
 | Micropipette | Neutral gray | Long tapered glass outline |
 | Complement | Pale cyan | Sparse surface dots; open pores on susceptible bacteria |
+| Endothelium | Slate | Narrow tiled vessel lining with small oval nuclei |
+| Platelets | Lavender | Tiny discs becoming spiky and spreading at an injury |
+| Fibrin | Pale gold | Short strands connecting a local platelet plug |
+| Fibroblast | Yellow-green | Long spindle body in tissue outside the vessel |
+| Repair matrix | Muted brown | Local, parallel unbranched fibers |
 
 Bright lime is reserved for phage bodies; red entity outlines identify red blood
 cells. Viral genomes use a related green, while food uses a subdued green.

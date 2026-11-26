@@ -39,6 +39,15 @@ def check_world(world):
         *world.spent_capsids,
     ]:
         assert math.isfinite(entity.x) and math.isfinite(entity.y)
+    if world.vessel is not None:
+        vessel = world.vessel
+        assert len(vessel.platelets) <= vessel.platelet_limit
+        assert len(vessel.fibroblasts) <= 2
+        assert len(vessel.fibers) <= 16
+        assert vessel.wound is None or 0 <= vessel.wound.repair < 1
+        assert vessel.transit is None or any(c.id == vessel.transit.cell_id for c in world.cells)
+        for obj in vessel.platelets + vessel.fibroblasts:
+            assert math.isfinite(obj.x) and math.isfinite(obj.y)
     for cell in world.cells:
         if cell.target is not None:
             assert cell.target in world.bacteria
@@ -105,7 +114,7 @@ def main():
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("--steps", type=int, default=108000)
     cli.add_argument("--seed", type=int, default=42)
-    cli.add_argument("--scene", choices=["mixed", "blood", "microbial"], default="mixed")
+    cli.add_argument("--scene", choices=["mixed", "blood", "microbial", "vessel"], default="mixed")
     cli.add_argument("--size", choices=["80x24", "120x40", "200x60"], default="120x40")
     cli.add_argument("--fixed-size", action="store_true", help="do not unblock routes by resizing")
     cli.add_argument("--magnification", choices=tuple(MAGNIFICATIONS), default="normal")

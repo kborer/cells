@@ -20,6 +20,7 @@ jobs:
           - {profile: mixed-resize, scene: mixed, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
           - {profile: blood-resize, scene: blood, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
           - {profile: microbial-resize, scene: microbial, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
+          - {profile: vessel-resize, scene: vessel, seed: 42, size: 120x40, magnification: normal, style: classic, steps: 108000, fixed: ''}
           - {profile: compact-seed0, scene: mixed, seed: 0, size: 80x24, magnification: normal, style: classic, steps: 27000, fixed: '--fixed-size'}
           - {profile: compact-seed42, scene: mixed, seed: 42, size: 80x24, magnification: normal, style: classic, steps: 27000, fixed: '--fixed-size'}
           - {profile: overview, scene: mixed, seed: 0, size: 80x24, magnification: overview, style: classic, steps: 27000, fixed: '--fixed-size'}

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Add an opt-in vessel scene with endothelial walls and staged neutrophil rolling,
+  adhesion, and junction crossing (#45).
+- Add platelet activation, spreading, local fibrin plugs, and bounded resolution
+  in the vessel scene (#46).
+- Add tissue-side fibroblasts, temporary matrix deposition, and recurring wound
+  repair, with shared presentation state, interactive tools, and staged previews (#50).
+
 - Recover obstructed edge arrivals with local navigation and offscreen retries;
   allow bodies in clear fluid to resume normal behavior before a blocked staging point.
 - Let duplicate immune cells depart through an edge so missing immune types can

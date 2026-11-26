@@ -162,6 +162,14 @@ present at once, and every arrival respects the slide's size limits.
 Press `s` to see arrivals and counts of feeding, fungal-following, and escaping
 microbes.
 
+## Vessel and tissue repair
+
+The opt-in `--scene vessel` adds a narrow endothelial lining, neutrophil rolling
+and junction crossing, platelet activation and temporary fibrin plugs, and
+fibroblast matrix deposition. See the [vessel guide](VESSEL.md) for the sequence,
+controls, simplifications, and staged previews. Endothelial cells and fibroblasts
+do not divide in this illustration; platelets are non-reproductive fragments.
+
 ## Reproduction
 
 | Entity | Behavior in the simulation |

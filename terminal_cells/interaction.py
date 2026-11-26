@@ -35,6 +35,12 @@ def describe(world, target):
                 State.DIGEST: "digesting",
             }[obj.state]
         )
+        if (
+            world.vessel is not None
+            and world.vessel.transit is not None
+            and world.vessel.transit.cell_id == obj.id
+        ):
+            phase = world.vessel.transit.phase
         if obj.entry is not None:
             phase = entry_phase(obj.entry)
         if world.events.freezes(obj):
@@ -64,6 +70,12 @@ def describe(world, target):
                 else " / complement-coated"
             )
         return f"{label} #{obj.id} / {phase}"
+    if target.kind == "endothelium":
+        return "Endothelial vessel lining / Lyse starts a local injury"
+    if target.kind == "fibroblast":
+        return "Fibroblast / crawling in tissue and depositing repair matrix"
+    if target.kind == "platelet":
+        return f"Platelet #{obj.id} / {obj.phase} / cell fragment without a nucleus"
     if target.kind == "red":
         return "Red blood cell / drifting / no nucleus"
     if target.kind == "phage":

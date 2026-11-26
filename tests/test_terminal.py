@@ -188,6 +188,23 @@ class TerminalTests(unittest.TestCase):
         self.assertFalse(parser().parse_args([]).fill)
         self.assertTrue(parser().parse_args(["--fill"]).fill)
 
+    def test_all_body_tints_fit_beside_vessel_colors_in_256_pairs(self):
+        from terminal_cells.frame import FILL_INKS, TINT_INKS
+
+        backend = FakeCurses()
+        renderer = TerminalRenderer(Screen(), "slide", "always", backend, fill=True)
+        self.assertTrue(renderer.fill)
+        for ink in TINT_INKS:
+            for tint in FILL_INKS:
+                renderer._attribute(ink, tint)
+        for ink in set(Ink) - TINT_INKS:
+            frame = Frame(1, 1, fill=True)
+            frame.put(0, 0, "*", ink, bg=Ink.FILL_CYTOPLASM)
+            self.assertIsNone(frame.pixels[0][0].bg)
+            self.assertEqual(renderer._attribute(ink, Ink.FILL_CYTOPLASM), renderer.attributes[ink])
+        self.assertTrue(renderer.fill)
+        self.assertLess(max(pair[0] for pair in backend.pairs), 256)
+
     def test_fill_pairs_glyph_ink_with_body_tint(self):
         backend, screen = FakeCurses(), Screen()
         renderer = TerminalRenderer(screen, "slide", "always", backend, fill=True)

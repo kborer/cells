@@ -54,5 +54,7 @@ def draw_lab(frame, world, unicode):
                     "phage": Ink.PHAGE,
                     "microbial_dna": Ink.MICROBIAL_DNA,
                     "fungus": Ink.FUNGUS,
+                    "platelet": Ink.PLATELET,
+                    "fibroblast": Ink.FIBROBLAST,
                 }[piece.role]
             frame.point(piece.x, piece.y, piece.char if effect.age < 4 else ".", ink)

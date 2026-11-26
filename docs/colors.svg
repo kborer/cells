@@ -282,12 +282,12 @@
 <text x="726" y="1090" fill="#0087af">COMPLEMENT 31/6</text>
 <rect x="696" y="1102" width="20" height="16" fill="#5f5f87"/>
 <text x="726" y="1115" fill="#5f5f87">ENDOTHELIUM 60/6</text>
-<rect x="696" y="1127" width="20" height="16" fill="#875faf"/>
-<text x="726" y="1140" fill="#875faf">PLATELET 97/5</text>
+<rect x="696" y="1127" width="20" height="16" fill="#af5faf"/>
+<text x="726" y="1140" fill="#af5faf">PLATELET 133/5</text>
 <rect x="696" y="1152" width="20" height="16" fill="#875f00"/>
 <text x="726" y="1165" fill="#875f00">FIBRIN 94/3</text>
-<rect x="696" y="1177" width="20" height="16" fill="#5f8700"/>
-<text x="726" y="1190" fill="#5f8700">FIBROBLAST 64/2</text>
+<rect x="696" y="1177" width="20" height="16" fill="#878700"/>
+<text x="726" y="1190" fill="#878700">FIBROBLAST 100/2</text>
 <rect x="696" y="1202" width="20" height="16" fill="#87875f"/>
 <text x="726" y="1215" fill="#87875f">MATRIX 101/3</text>
 </g></svg>

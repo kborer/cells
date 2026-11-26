@@ -240,6 +240,9 @@ class PaletteTests(unittest.TestCase):
             Ink.ROTIFER,
             Ink.NET,
             Ink.GLASS,
+            Ink.ENDOTHELIUM,
+            Ink.PLATELET,
+            Ink.FIBROBLAST,
         ]
 
         def rgb(code):

@@ -192,7 +192,7 @@ class Vessel:
                 continue
             vx, vy = world.current(obj.x, obj.y)
             fx, fy = world.lab.flow(obj.x, obj.y)
-            vx, vy = vx + fx + 0.8, vy + fy
+            vx, vy = vx + fx, vy + fy
             if wound is not None and wound.age < 95 and attached < 8:
                 wy = self.wall(wound.x, wound.side) - wound.side * 2
                 dx, dy = wound.x - obj.x, wy - obj.y

@@ -6,14 +6,15 @@ import unittest
 
 from terminal_cells import World, Cell, State
 from terminal_cells.capabilities import RenderCapabilities
-from terminal_cells.frame import Ink
-from terminal_cells.geometry import Target, hit_test, targets
+from terminal_cells.frame import Frame, Ink
+from terminal_cells.geometry import Target, hit_test, targets, endothelial_rows
 from terminal_cells.interaction import describe
 from terminal_cells.models import STEP
 from terminal_cells.scenes import make_scene
 from terminal_cells.style_checks import check_style
 from terminal_cells.styles import STYLES, RenderOptions
-from terminal_cells.viewport import Camera
+from terminal_cells.viewport import Camera, Grid, projection
+from terminal_cells.vessel_render import draw_wall
 from tools.endurance import check_world
 
 
@@ -23,6 +24,39 @@ def advance(world, seconds):
 
 
 class VesselTests(unittest.TestCase):
+    def test_endothelial_nuclei_remain_between_connected_consistent_borders(self):
+        world = World(240, 60, 42, scene="vessel", rare_events=False)
+        world.cells.clear()
+        world.bacteria.clear()
+        world.red_cells.clear()
+        world.phages.clear()
+        world.vessel.fibroblasts.clear()
+        world.vessel.platelets.clear()
+        for scale in (0.5, 1, 3):
+            for top in (0, 0.7, 1.6):
+                grid = Grid(scale, left=0.35, top=top, columns=240, rows=190)
+                with projection(grid):
+                    frame = Frame(240, 190)
+                    draw_wall(frame, world)
+                for obj in world.vessel.endothelium:
+                    col = round(grid.column(obj.x))
+                    inner, outer, nucleus = endothelial_rows(world.vessel, obj.x, obj.side, grid)
+                    if not (
+                        0 <= col < frame.width
+                        and 0 <= min(inner, outer) <= max(inner, outer) < frame.height
+                    ):
+                        continue
+                    with self.subTest(scale=scale, top=top, x=obj.x, side=obj.side):
+                        self.assertGreater(abs(inner - outer), 1)
+                        self.assertTrue(min(inner, outer) < nucleus < max(inner, outer))
+                        self.assertEqual(frame.pixels[nucleus][col].char, "o")
+                        for row in (inner, outer):
+                            self.assertIs(frame.pixels[row][col].ink, Ink.ENDOTHELIUM)
+                            self.assertNotEqual(frame.pixels[row][col].char, "o")
+                        self.assertEqual(
+                            hit_test(world, col, nucleus, grid=grid).kind, "endothelium"
+                        )
+
     def test_scene_is_opt_in_and_small_windows_degrade_then_recover(self):
         self.assertIsNone(World(100, 40, 42).vessel)
         world = World(20, 8, 42, scene="vessel")

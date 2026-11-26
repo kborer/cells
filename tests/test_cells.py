@@ -1095,12 +1095,38 @@ class PhageTests(unittest.TestCase):
         world.replenish_at = world.phage_replenish_at = math.inf
         return world
 
-    def test_stationary_phage_ignores_currents(self):
+    def test_free_phage_follows_currents(self):
         world = self.world()
         world.bacteria.clear()
         world.current = lambda x, y: (3, -2)
         advance(world, 5)
-        self.assertEqual((world.phages[0].x, world.phages[0].y), (35, 30))
+        self.assertAlmostEqual(world.phages[0].x, 50)
+        self.assertAlmostEqual(world.phages[0].y, 20)
+
+    def test_released_capsids_and_flying_phages_share_fluid_advection(self):
+        world = self.world()
+        world.bacteria.clear()
+        world.current = lambda x, y: (3, -2)
+        phage = world.phages[0]
+        phage.flight, phage.vx, phage.vy = 2, 4, 1
+        world.spent_capsids = [Phage(-1, 20, 25, lifetime=18)]
+        world._update_phages(0.1)
+        self.assertAlmostEqual(phage.x, 35.7)
+        self.assertAlmostEqual(phage.y, 29.9)
+        self.assertAlmostEqual(world.spent_capsids[0].x, 20.3)
+        self.assertAlmostEqual(world.spent_capsids[0].y, 24.8)
+        self.assertAlmostEqual(phage.flight, 1.9)
+
+    def test_phage_flow_cannot_jump_through_a_membrane(self):
+        world = self.world()
+        world.bacteria.clear()
+        world.cells = [Cell(0, 60, 35, 12, 0, 0, cooldown=999, divide_at=math.inf)]
+        world.current = lambda x, y: (30, 0)
+        phage = world.phages[0]
+        phage.x, phage.y = 30, 35
+        world._update_phages(1)
+        self.assertLess(phage.x, 48)
+        self.assertFalse(world.is_blocked(phage.x, phage.y, PHAGE_PADDING))
 
     def test_swimming_host_gets_an_infection_roll_after_approaching(self):
         world = self.world()

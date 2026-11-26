@@ -90,7 +90,7 @@ through the explicit engulfment sequence. Cytoplasmic specks inside cells are
 internal granules, separate from extracellular drifting debris. Flexible flagella
 stop at obstacles; larger collision clearances protect the whole bacterial body.
 
-A slide starts with one to three stationary bacteriophages near bacterial swimming paths.
+A slide starts with one to three drifting bacteriophages near bacterial swimming paths.
 Each new contact with a free, uninfected bacterium has a **45% infection chance**;
 lingering contact does not cause repeated rolls. A failed attachment deflects
 the bacterium. Drifting red blood cells can push free phages aside. Successful
@@ -108,10 +108,10 @@ attachment starts a **24-second viral cycle**:
 
 A dim empty capsid stays outside the host after injection, follows its surface
 as it moves, and remains briefly after lysis before fading away. These spent
-shells cannot infect another bacterium.
+shells drift with the fluid after release and cannot infect another bacterium.
 
 The destroyed host releases 4–7 new phages when population space permits. They
-scatter briefly, settle, and wait for another host. Infected bacteria do not
+scatter briefly, then drift with the fluid while waiting for another host. Infected bacteria do not
 divide. Macrophages can engulf infected bacteria and suppress viral release.
 Phage counts are capped by terminal area; progeny eventually expire, and an
 empty slide can receive a replacement phage after a quiet interval. These sizes
@@ -138,7 +138,7 @@ illustrative local behaviors; a sealed capture always takes precedence.
 To keep long runs varied, microbes can arrive from the screen edges at random
 intervals. Mobile arrivals start fully offscreen, including their flagella,
 and gradually swim or drift across the boundary. Incoming immune cells and red
-blood cells use the same entry sequence; replacement phages drift in and settle.
+blood cells use the same entry sequence; replacement phages drift in and continue with the fluid.
 An obstructed arrival briefly waits, then steers around the obstacle. If it cannot
 enter, it withdraws and tries another route only once entirely offscreen. A body
 in clear fluid resumes normal behavior even if its trailing flagellum is still

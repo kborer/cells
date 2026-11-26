@@ -84,7 +84,7 @@ def describe(world, target):
             if obj.entry is not None
             else "dispersing"
             if obj.flight
-            else "waiting for a host"
+            else "drifting / waiting for a host"
         )
     if target.kind == "hypha":
         return f"Fungal branch / {len(obj.nodes)} compartments / growing tips {len(obj.tips)}"
